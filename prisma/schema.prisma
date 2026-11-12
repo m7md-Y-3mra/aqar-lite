@@ -6,3 +6,180 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  MANAGER
+  SALES
+  ACCOUNTANT
+}
+
+enum UnitType {
+  APARTMENT
+  VILLA
+  TOWNHOUSE
+  DUPLEX
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum AuditAction {
+  LOGIN_FAILED
+  PRICE_CHANGED
+  CONTRACT_APPROVED
+  PAYMENT_RECORDED
+}
+
+model Company {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  users        User[]
+  units        Unit[]
+  clients      Client[]
+  reservations Reservation[]
+  contracts    Contract[]
+  auditLogs    AuditLog[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String        @map("company_id") @db.Uuid
+  name         String
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  role         Role
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sessions     Session[]
+  clients      Client[]      @relation("ClientSalesRep")
+  reservations Reservation[] @relation("ReservationSalesRep")
+  auditLogs    AuditLog[]
+
+  @@unique([companyId, id])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Unit {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String        @map("company_id") @db.Uuid
+  projectName  String        @map("project_name")
+  number       String
+  type         UnitType
+  area         Int
+  rooms        Int
+  price        BigInt
+  status       UnitStatus    @default(AVAILABLE)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reservations Reservation[]
+
+  @@unique([companyId, id])
+  @@unique([companyId, projectName, number])
+  @@index([companyId, status])
+  @@map("units")
+}
+
+model Client {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String        @map("company_id") @db.Uuid
+  salesRepId   String        @map("sales_rep_id") @db.Uuid
+  name         String
+  phone        String
+  notes        String?
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  salesRep     User          @relation("ClientSalesRep", fields: [companyId, salesRepId], references: [companyId, id], onDelete: Restrict, onUpdate: Restrict)
+  reservations Reservation[]
+
+  @@unique([companyId, id])
+  @@index([companyId, salesRepId])
+  @@map("clients")
+}
+
+model Reservation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  unitId     String   @map("unit_id") @db.Uuid
+  clientId   String   @map("client_id") @db.Uuid
+  salesRepId String   @map("sales_rep_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  unit       Unit     @relation(fields: [companyId, unitId], references: [companyId, id], onDelete: Restrict, onUpdate: Restrict)
+  client     Client   @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict, onUpdate: Restrict)
+  salesRep   User     @relation("ReservationSalesRep", fields: [companyId, salesRepId], references: [companyId, id], onDelete: Restrict, onUpdate: Restrict)
+  contract   Contract?
+
+  @@unique([companyId, id])
+  @@index([unitId, expiresAt])
+  @@index([companyId, salesRepId])
+  @@map("reservations")
+}
+
+model Contract {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String        @map("company_id") @db.Uuid
+  reservationId    String        @unique @map("reservation_id") @db.Uuid
+  finalPrice       BigInt        @map("final_price")
+  downPayment      BigInt        @map("down_payment")
+  installmentCount Int           @map("installment_count")
+  approvedAt       DateTime?     @map("approved_at") @db.Timestamptz(3)
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reservation      Reservation   @relation(fields: [companyId, reservationId], references: [companyId, id], onDelete: Restrict, onUpdate: Restrict)
+  installments     Installment[]
+  payments         Payment[]
+
+  @@unique([companyId, reservationId])
+  @@map("contracts")
+}
+
+model Installment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId String   @map("contract_id") @db.Uuid
+  seq        Int
+  dueDate    DateTime @map("due_date") @db.Date
+  amount     BigInt
+  paidAmount BigInt   @default(0) @map("paid_amount")
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([contractId, seq])
+  @@map("installments")
+}
+
+model Payment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId     String   @map("contract_id") @db.Uuid
+  amount         BigInt
+  idempotencyKey String   @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([contractId, idempotencyKey])
+  @@map("payments")
+}
+
+model AuditLog {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String?     @map("company_id") @db.Uuid
+  userId    String?     @map("user_id") @db.Uuid
+  action    AuditAction
+  entityId  String?     @map("entity_id") @db.Uuid
+  meta      Json        @default("{}")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  company   Company?    @relation(fields: [companyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user      User?       @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}
