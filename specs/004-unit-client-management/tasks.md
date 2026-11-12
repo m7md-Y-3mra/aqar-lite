@@ -121,7 +121,7 @@ description: "Task list for phase 3: units and clients"
   - "السابق" and "التالي" buttons, disabled at the ends;
   - the text "صفحة X من Y" (Y ≥ 1).
 - [X] T020 [P] Create `src/shared/components/empty-state/empty-state.tsx` and `index.ts` (props `{ message; action?: ReactNode }`). Create `src/shared/components/error-state/error-state.tsx` and `index.ts` (props `{ message; onRetry?; resetHref? }`, showing "إعادة المحاولة" and/or "مسح الفلاتر"). Create `src/shared/components/table-skeleton/table-skeleton.tsx` and `index.ts` (props `{ rows?; columns }`).
-- [ ] T021 [P] Create `tests/integration/support/session-users.ts`:
+- [X] T021 [P] Create `tests/integration/support/session-users.ts`:
   - `makeSessionUser(companyId, role)` calls `makeUser` from `db-fixtures.ts` and returns phase 2's `SessionUser`;
   - `makeTwoCompanies()` returns company A and company B, each with a MANAGER, an ACCOUNTANT and 2 SALES `SessionUser`s.
 - [x] T022 [P] Create `src/features/units/units.schemas.ts`:
