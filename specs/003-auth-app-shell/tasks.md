@@ -365,7 +365,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - no `localStorage`/`sessionStorage` in `src/`;
   - `npm audit --audit-level=high` clean;
   - every `src/app/api/**/route.ts` only re-exports from a `*.routes.ts`.
-- [ ] T045 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build` all pass. Then run `/security-review` and fix every open issue. Mark the tasks done in this file, and update `specs/003-auth-app-shell/checklists/requirements.md` if anything changed.
+- [x] T045 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build` all pass. Then run `/security-review` and fix every open issue. Mark the tasks done in this file, and update `specs/003-auth-app-shell/checklists/requirements.md` if anything changed.
 
 ---
 
