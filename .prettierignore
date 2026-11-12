@@ -1,0 +1,14 @@
+.next
+node_modules
+src/generated
+package-lock.json
+specs
+docs
+dist
+build
+coverage
+.claude
+.agents
+.specify
+AGENTS.md
+CLAUDE.md
