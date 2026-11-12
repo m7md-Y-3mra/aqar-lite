@@ -72,6 +72,9 @@ apply all migrations to it before running, and refuse any database whose name do
 - **Layer rules are enforced by tooling.** ESLint blocks ORM imports outside `*.repository.ts` and
   `src/server/db.ts`, and server imports in client and shared code. Every server file starts with
   `import "server-only"`, so `next build` also fails if client code imports it. Tests prove both.
+- **The Arabic font is committed.** IBM Plex Sans Arabic (400, 500, 700; woff2; SIL OFL 1.1 in
+  `src/shared/fonts/ofl.txt`) loads with `next/font/local`, so the build works with no network and the page
+  needs no external font or style source (`font-src 'self'`).
 - **Rejected:** `output: "standalone"` (it leaves out the Prisma CLI needed for `migrate deploy`), a separate
   migration service (more moving parts), Testcontainers (the Compose database is enough).
 
