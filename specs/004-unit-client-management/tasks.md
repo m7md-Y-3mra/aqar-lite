@@ -326,12 +326,12 @@ description: "Task list for phase 3: units and clients"
 
   Create `src/features/clients/clients.types.ts` (`ClientDto`, `ClientInput`, `ClientListQuery`, `ClientPage`) and `src/features/clients/clients.keys.ts` (`clientKeys.all`, `list`, `detail`).
 - [x] T058 [P] [US4] Write `tests/unit/features/clients/clients.schemas.test.ts`: "accepts +966 50-000-0000", "accepts 0500000000", "rejects letters", "rejects 6 and 21 chars", "notes over 2000 rejected", "empty notes → null", "keeps line breaks in notes", "input strips salesRepId and companyId", "rejects pageSize 51", "rejects page 0".
-- [ ] T059 [US4] Write `tests/integration/features/clients/server/clients.service.test.ts`, using `makeTwoCompanies`:
+- [X] T059 [US4] Write `tests/integration/features/clients/server/clients.service.test.ts`, using `makeTwoCompanies`:
   - **"create"**: "owner and company come from the session" (input parsed with a foreign `salesRepId`/`companyId`), "duplicate phone across reps is accepted".
   - **"ownership"**: "rep list shows only own clients", "rep reading another rep's client → NOT_FOUND", "rep edits own client", "rep editing another rep's client → NOT_FOUND, unchanged".
   - **"list"**: "ordered by name then id, pageSize respected".
   - **"notes"**: "HTML-like notes returned exactly as typed" (notes `"<b>مهم</b>\n<script>alert(1)</script>"`).
-- [ ] T060 [P] [US4] Write `tests/integration/features/clients/server/clients.routes.test.ts`: "GET /api/clients/{other rep's id} as SALES returns 404" and "POST /api/clients with a valid body returns 201 with salesRep = session user".
+- [X] T060 [P] [US4] Write `tests/integration/features/clients/server/clients.routes.test.ts`: "GET /api/clients/{other rep's id} as SALES returns 404" and "POST /api/clients with a valid body returns 201 with salesRep = session user".
 
 ### Implementation for User Story 4
 
@@ -341,7 +341,7 @@ description: "Task list for phase 3: units and clients"
   - `findClient(companyId, id, salesRepId?, tx?)`;
   - `insertClient(companyId, salesRepId, input, tx?)`;
   - `updateOwnClient(companyId, id, salesRepId, input, tx?)`: `updateMany` with `where { id, companyId, salesRepId }` → count.
-- [ ] T062 [US4] Create `src/features/clients/server/clients.service.ts`:
+- [X] T062 [US4] Create `src/features/clients/server/clients.service.ts`:
   - `toClientDto`;
   - `scopeFor(user)` = `user.role === "SALES" ? user.userId : undefined`;
   - `listClients(user, query)`, `getClient(user, id)` (`null` → `NOT_FOUND`);
@@ -349,28 +349,28 @@ description: "Task list for phase 3: units and clients"
   - `updateClient(user, id, input)`: `findClient` with `scopeFor` → `null` → `NOT_FOUND`; then role ≠ SALES → `FORBIDDEN`; then `updateOwnClient` → 0 → `NOT_FOUND`; then return the re-read DTO.
 
   T059 must pass.
-- [ ] T063 [US4] Create `src/features/clients/server/clients.routes.ts` (`listClientsHandler`, `createClientHandler` returning status 201, `getClientHandler`, `updateClientHandler`; a non-UUID id → `NOT_FOUND`; body via `clientInputSchema.parse(await readJson(req))`; query via `toQueryInput`). Create `src/features/clients/server/index.ts` exporting the service functions and handlers.
-- [ ] T064 [P] [US4] Create `src/app/api/clients/route.ts` (`GET`, `POST`) and `src/app/api/clients/[id]/route.ts` (`GET`, `PATCH`) as re-exports only. T060 must pass.
-- [ ] T065 [P] [US4] Create `src/features/clients/client/clients.queries.ts` (`clientListOptions(query)`, `clientDetailOptions(id)` via `queryOptions` + `apiFetch`).
-- [ ] T066 [P] [US4] Create `src/features/clients/client/clients-page/components/clients-table/clients-table.tsx` and `index.ts`:
+- [X] T063 [US4] Create `src/features/clients/server/clients.routes.ts` (`listClientsHandler`, `createClientHandler` returning status 201, `getClientHandler`, `updateClientHandler`; a non-UUID id → `NOT_FOUND`; body via `clientInputSchema.parse(await readJson(req))`; query via `toQueryInput`). Create `src/features/clients/server/index.ts` exporting the service functions and handlers.
+- [X] T064 [P] [US4] Create `src/app/api/clients/route.ts` (`GET`, `POST`) and `src/app/api/clients/[id]/route.ts` (`GET`, `PATCH`) as re-exports only. T060 must pass.
+- [X] T065 [P] [US4] Create `src/features/clients/client/clients.queries.ts` (`clientListOptions(query)`, `clientDetailOptions(id)` via `queryOptions` + `apiFetch`).
+- [X] T066 [P] [US4] Create `src/features/clients/client/clients-page/components/clients-table/clients-table.tsx` and `index.ts`:
   - props `{ clients: ClientDto[]; showOwner: boolean; dimmed: boolean }`;
   - columns: name (a link to `/clients/{id}`), phone (`dir="ltr"`), and owner (`salesRep.name`) only when `showOwner`;
   - wrapped in `overflow-x-auto`.
-- [ ] T067 [US4] Create `src/features/clients/client/clients-page/use-clients-page.ts` and `clients-page.tsx` + `index.ts`. They follow the same pattern as T036/T037: URL page and pageSize, `keepPreviousData`, loading/empty ("لا يوجد عملاء")/error states, `PaginationNav`, and an "إضافة عميل" link only when `role === "SALES"`.
-- [ ] T068 [P] [US4] Create `src/features/clients/client/client-details/client-details.tsx` and `index.ts`:
+- [X] T067 [US4] Create `src/features/clients/client/clients-page/use-clients-page.ts` and `clients-page.tsx` + `index.ts`. They follow the same pattern as T036/T037: URL page and pageSize, `keepPreviousData`, loading/empty ("لا يوجد عملاء")/error states, `PaginationNav`, and an "إضافة عميل" link only when `role === "SALES"`.
+- [X] T068 [P] [US4] Create `src/features/clients/client/client-details/client-details.tsx` and `index.ts`:
   - `useQuery(clientDetailOptions(id))` with loading and error states;
   - shows name, phone (`dir="ltr"`) and notes as `<p className="whitespace-pre-wrap">{client.notes}</p>` (a text child only), or "لا توجد ملاحظات";
   - an "تعديل" link only when `role === "SALES"`.
-- [ ] T069 [US4] Create `src/features/clients/client/client-form/use-client-form.ts` and `client-form.tsx` + `index.ts`:
+- [X] T069 [US4] Create `src/features/clients/client/client-form/use-client-form.ts` and `client-form.tsx` + `index.ts`:
   - create and edit modes, using `zodResolver(clientInputSchema)`;
   - fields name, phone (`dir="ltr"`) and notes (`Textarea`), each with its error under it, and a root `Alert`;
   - on success, invalidate `clientKeys.all`, show a toast, then `router.push("/clients/{id}")`.
-- [ ] T070 [US4] Create the client pages:
+- [X] T070 [US4] Create the client pages:
   - `src/app/(app)/clients/page.tsx`: same pattern as T038, with `listClients` and `clientKeys.list`.
   - `src/app/(app)/clients/new/page.tsx`: `role !== "SALES"` → `redirect("/clients")`.
   - `src/app/(app)/clients/[id]/page.tsx`: prefetch `getClient`; `NOT_FOUND` → `notFound()`, as in T055.
   - `src/app/(app)/clients/[id]/edit/page.tsx`: `role !== "SALES"` → `redirect("/clients")`; prefetch; `NOT_FOUND` → `notFound()`.
-- [ ] T071 [US4] Add a "العملاء" link (all roles) to the phase 2 navigation component.
+- [X] T071 [US4] Add a "العملاء" link (all roles) to the phase 2 navigation component.
 
 **Checkpoint**: The sales rep client flow works alone. T058–T060 pass.
 
@@ -384,15 +384,15 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T072 [US5] Add to `tests/integration/features/clients/server/clients.service.test.ts`:
+- [X] T072 [US5] Add to `tests/integration/features/clients/server/clients.service.test.ts`:
   - **"read-only roles"**: "manager lists all company clients with salesRep", "accountant lists all company clients", "manager and accountant read any company client".
   - **"role checks"**: "MANAGER cannot create/update", "ACCOUNTANT cannot create/update" (`FORBIDDEN`; the client is unchanged and no row is added).
-- [ ] T073 [P] [US5] Add to `tests/integration/features/clients/server/clients.routes.test.ts`: "PATCH /api/clients/{id} with a valid body as ACCOUNTANT returns 403".
+- [X] T073 [P] [US5] Add to `tests/integration/features/clients/server/clients.routes.test.ts`: "PATCH /api/clients/{id} with a valid body as ACCOUNTANT returns 403".
 
 ### Implementation for User Story 5
 
-- [ ] T074 [US5] In `src/features/clients/client/clients-page/clients-page.tsx`, pass `showOwner={role !== "SALES"}` to `ClientsTable`.
-- [ ] T075 [US5] In `src/features/clients/client/client-details/client-details.tsx`, show "المندوب: {salesRep.name}" when `role !== "SALES"`. Confirm the edit link stays hidden for MANAGER and ACCOUNTANT. T072 and T073 must pass (the service rules come from T062; fix T062 if they fail).
+- [X] T074 [US5] In `src/features/clients/client/clients-page/clients-page.tsx`, pass `showOwner={role !== "SALES"}` to `ClientsTable`.
+- [X] T075 [US5] In `src/features/clients/client/client-details/client-details.tsx`, show "المندوب: {salesRep.name}" when `role !== "SALES"`. Confirm the edit link stays hidden for MANAGER and ACCOUNTANT. T072 and T073 must pass (the service rules come from T062; fix T062 if they fail).
 
 **Checkpoint**: The client permission matrix is complete.
 
@@ -408,15 +408,15 @@ description: "Task list for phase 3: units and clients"
 
 These tests prove behaviour built in US1–US5. They should pass once written; if any fails, fix the service, never the test.
 
-- [ ] T076 [US6] Add to "tenant isolation" in `tests/integration/features/units/server/units.service.test.ts`:
+- [X] T076 [US6] Add to "tenant isolation" in `tests/integration/features/units/server/units.service.test.ts`:
   - "getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT";
   - "updateUnit of company B → NOT_FOUND for every role, unchanged" (compare the full row before and after; no audit row in either company);
   - "list filters cannot reach company B" (a `status`/price range matching only B's unit returns `total: 0`).
-- [ ] T077 [US6] Add to "tenant isolation" in `tests/integration/features/clients/server/clients.service.test.ts`:
+- [X] T077 [US6] Add to "tenant isolation" in `tests/integration/features/clients/server/clients.service.test.ts`:
   - "getClient of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT";
   - "updateClient of company B → NOT_FOUND for every role, unchanged";
   - "client list excludes company B for MANAGER, SALES, ACCOUNTANT".
-- [ ] T078 [P] [US6] Add to `tests/integration/features/units/server/units.routes.test.ts` and `tests/integration/features/clients/server/clients.routes.test.ts`:
+- [X] T078 [P] [US6] Add to `tests/integration/features/units/server/units.routes.test.ts` and `tests/integration/features/clients/server/clients.routes.test.ts`:
   - "GET /api/{units|clients}/{company B id} returns 404";
   - "GET /api/{units|clients}/not-a-uuid returns 404";
   - "PATCH company B record with a valid body returns 404 for MANAGER (units) and SALES (clients)";
@@ -428,10 +428,10 @@ These tests prove behaviour built in US1–US5. They should pass once written; i
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T079 [P] Update `README.md`:
+- [X] T079 [P] Update `README.md`:
   - **Assumptions**: add the phase 3 items from spec.md › Assumptions and the 5 clarifications (client roles, the price-only lock, no audit on create, alphabetical default order, field limits, loose phone, 404 for another rep's client).
   - **Technical decisions**: add the R1 conditional price update (and why no `FOR UPDATE`), R2 lazy expiry as one SQL UPDATE, R3 404-before-403 order, and R6 duplicate number as a field error, each with its rejected alternative.
-- [ ] T080 [P] Self-review against AGENTS.md:
+- [X] T080 [P] Self-review against AGENTS.md:
   - `grep -rn "companyId\|salesRepId\|status" src/features/*/*.schemas.ts` shows no input-schema field;
   - `grep -rn "\.omit(" src/` is empty;
   - `grep -rnE "\b(ml|mr|pl|pr|left|right)-" src/features src/shared/components` is empty;
@@ -439,8 +439,8 @@ These tests prove behaviour built in US1–US5. They should pass once written; i
   - every new server file starts with `import "server-only";`.
 
   Fix anything found.
-- [ ] T081 Run `npm run lint && npm run typecheck && npm run test`, then `docker compose up -d db && npm run test:integration`. Everything must pass.
-- [ ] T082 Run the manual checks in `specs/004-unit-client-management/quickstart.md` §2–§7 with `docker compose up` and the seed accounts. Record any failure as a new task and fix it.
+- [X] T081 Run `npm run lint && npm run typecheck && npm run test`, then `docker compose up -d db && npm run test:integration`. Everything must pass.
+- [X] T082 Run the manual checks in `specs/004-unit-client-management/quickstart.md` §2–§7 with `docker compose up` and the seed accounts. Record any failure as a new task and fix it.
 - [ ] T083 Run `/security-review` on the branch and fix every open issue (constitution › Development Workflow). Then mark all tasks done in this file and commit `docs: mark phase 3 tasks done`.
 
 ---
