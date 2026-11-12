@@ -7,3 +7,8 @@ docs
 dist
 build
 coverage
+.claude
+.agents
+.specify
+AGENTS.md
+CLAUDE.md
