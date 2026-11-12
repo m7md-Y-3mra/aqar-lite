@@ -1,7 +1,7 @@
 # Aqar Lite
 
 A multi-tenant system to sell real-estate units by installments (Next.js, PostgreSQL, Prisma).
-This README grows with each phase. The current phase is **0: project setup** (an empty Arabic RTL home page).
+This README grows with each phase. The current phase is **1: database schema and seed** (the home page is still an empty Arabic RTL placeholder).
 
 ## Running
 
@@ -32,6 +32,20 @@ The database uses host port **5433** so it does not clash with a Postgres alread
 The first build takes several minutes (base images and `npm ci`); later builds use the cache.
 
 If you used an older volume from before the test database existed, reset it once: `docker compose down -v`.
+
+Demo accounts (login arrives in phase 2). Password for every account: `AqarLite#2026`
+(demo only; stored only as an Argon2id hash).
+
+| Company | Role | Name | Email |
+|---|---|---|---|
+| شركة الأفق للتطوير العقاري | Manager | مدير الأفق | `manager@ufuq.test` |
+| شركة الأفق للتطوير العقاري | Accountant | محاسب الأفق | `accountant@ufuq.test` |
+| شركة الأفق للتطوير العقاري | Sales rep | مندوب الأفق 1 | `sales1@ufuq.test` |
+| شركة الأفق للتطوير العقاري | Sales rep | مندوب الأفق 2 | `sales2@ufuq.test` |
+| شركة النخبة العقارية | Manager | مدير النخبة | `manager@nukhba.test` |
+| شركة النخبة العقارية | Accountant | محاسب النخبة | `accountant@nukhba.test` |
+| شركة النخبة العقارية | Sales rep | مندوب النخبة 1 | `sales1@nukhba.test` |
+| شركة النخبة العقارية | Sales rep | مندوب النخبة 2 | `sales2@nukhba.test` |
 
 ## Development
 
@@ -80,7 +94,12 @@ apply all migrations to it before running, and refuse any database whose name do
 
 ## Assumptions
 
-- Phase 0 has no login and no data; the home page is a public placeholder that phase 2 replaces.
+- There is no login yet; the home page is a public placeholder that phase 2 replaces.
+- Area is in whole m². Unit types are apartment, villa, townhouse and duplex.
+- The database refuses cross-company links with composite foreign keys; services still filter by company.
+- Emails are stored trimmed and lowercase.
+- The seed runs in one transaction and skips when its first company exists.
+- Integration tests rebuild the `aqar_test` schema on every run.
 - `docker compose up` supplies non-secret local development settings, so a clean clone needs no `.env`.
   "Refuses to start" applies to the settings the app actually receives. An empty value counts as missing.
 - The database is published on `127.0.0.1:5433` only, never on the network.
@@ -107,6 +126,10 @@ The "3 biggest risks" section is written in the final phase.
 ## Not done
 
 Business features (units, clients, reservations, contracts, payments, audit log) arrive in phases 1–7.
+
+- The app connects as the table owner, which could deliberately disable the append-only triggers.
+  The fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and
+  `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs (migrations and app).
 
 ## AI tools
 

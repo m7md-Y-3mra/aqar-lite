@@ -177,7 +177,7 @@ description: "Task list for phase 1: database schema and seed"
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T024 Update `README.md` (phase 0 file):
+- [x] T024 Update `README.md` (phase 0 file):
   - "Running": the seed accounts table and password from [contracts/seed-accounts.md](./contracts/seed-accounts.md) (Story 4 scenario 6, FR-028);
   - "Assumptions": area in whole m²; unit types apartment/villa/townhouse/duplex; the database refuses cross-company links (composite FKs) and services still filter by company; emails stored trimmed and lowercase; the seed runs in one transaction and skips when its first company exists; integration tests rebuild the `aqar_test` schema on every run;
   - "Not done": the app connects as the table owner, which could disable the append-only triggers on purpose; the fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs (one for migrations, one for the app) (plan.md, agreed 2026-11-12).
