@@ -82,6 +82,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   - `FROM node:22-bookworm-slim AS deps`: `WORKDIR /app`, copy `package.json package-lock.json`, `npm ci`.
   - `FROM node:22-bookworm-slim AS build`: copy `node_modules` from deps, then the source. Run `RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate`, the **only** place a database URL appears. **No `ENV DATABASE_URL`, no `ARG DATABASE_URL`.** Then `RUN npm run build` and `RUN npm prune --omit=dev`.
   - `FROM node:22-bookworm-slim AS runner`: `ENV NODE_ENV=production`, `WORKDIR /app`. Copy from build, owned by `node`: `package.json`, `node_modules`, `.next`, `next.config.ts`, `prisma`, `prisma.config.ts`, `scripts`, `src/server/env.ts` (keep the same relative path), `src/generated` (the generated client), and `docker/app/entrypoint.sh`. Then `USER node`, `EXPOSE 3000`, `ENTRYPOINT ["./docker/app/entrypoint.sh"]`.
+  - Check: dev packages (including `typescript`) are pruned, but `next start` must still load `next.config.ts`. If T030 shows it cannot load the config without `typescript`, rename it to `next.config.mjs` (plain JS with a JSDoc `@type {import('next').NextConfig}`) and update T020's import. Do not move `typescript` into `dependencies`.
 - [ ] T029 [US1] Create `docker-compose.yml`:
   - **`db` service**:
     - `image: postgres:18-alpine`
@@ -173,7 +174,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   It must fail until T040 exists.
 - [ ] T039 [P] [US3] Write `tests/unit/architecture/conventions.test.ts`. It walks the file system with `node:fs`, skipping `src/generated` and `.gitkeep`, and asserts:
   - (a) every `.ts`/`.tsx` file under `src/server/` and `src/features/*/server/` has `import "server-only";` as its first statement;
-  - (b) every file and folder name under `src/` and `tests/` matches `^[a-z0-9]+(?:[-.][a-z0-9]+)*$` (kebab-case, dots allowed for `.test.ts`, `.repository.ts`, …), except the Next.js names `layout.tsx`, `page.tsx`, `route.ts`, `globals.css` and `instrumentation.ts`, which already match.
+  - (b) every file and folder name under `src/` and `tests/` matches `^[a-z0-9]+(?:[-.][a-z0-9]+)*$` (kebab-case, dots allowed for `.test.ts`, `.repository.ts`, …). Next.js route-segment folders are also accepted when their inner name is kebab-case: dynamic `[id]`, catch-all `[...slug]`, optional catch-all `[[...slug]]` and route groups `(auth)`. Next.js file names (`layout.tsx`, `page.tsx`, `route.ts`, `globals.css`, `instrumentation.ts`) already match. Include a self-check case that `[id]` and `(auth)` pass and `UnitList` and `unit_list` fail.
 
 ### Implementation for User Story 3
 
@@ -258,6 +259,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 - [ ] T049 Run `npm audit --audit-level=high`. It must report no high or critical findings. If a fix needs a version change outside the pins, stop and ask the user.
 - [ ] T050 Run `npx prettier --check .` and fix formatting with `npm run format` (no logic changes).
 - [ ] T051 Final gate on a clean clone of the branch into a temp folder: `docker compose down -v`, then the full quickstart.md §1–§6, then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. Record the results in the phase notes. Do not mark the phase done if any step fails.
+- [ ] T052 Run `/security-review` on the branch diff (constitution, Development Workflow: a phase is done only when it shows no open issues). Fix every finding, or record it with a reason in the README "Security" section if it is out of scope for phase 0. Re-run `npm run lint && npm run typecheck && npm run test` after any fix.
 
 ---
 
@@ -269,10 +271,10 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 - **Foundational (Phase 2)**: needs Setup. It blocks every story.
 - **US1 (Phase 3)**: needs Foundational.
 - **US2 (Phase 4)**: needs Foundational. T034–T037 need the `db` service from US1's T025/T029, so do US1 first.
-- **US3 (Phase 5)**: needs Foundational and T034/T035 (the overrides it tests). It edits `eslint.config.mjs`, so it runs after T007.
+- **US3 (Phase 5)**: needs Foundational. The lint test uses virtual file paths, so it does not need T034/T035 to exist. It edits `eslint.config.mjs`, so it runs after T007.
 - **US4 (Phase 6)**: needs Foundational (`env.ts`). T045's container check needs US1.
 - **US5 (Phase 7)**: needs a passing lint and typecheck, so run it after US3.
-- **Polish (Phase 8)**: needs all stories.
+- **Polish (Phase 8)**: needs all stories. T052 (security review) runs last, after T051.
 
 ### Within Each Story
 
@@ -320,4 +322,4 @@ US1 → US2 (gates) → US3 (layer rules) → US4 (env refusal) → US5 (CI) →
 - `[P]` = different files, no dependency on an unfinished task.
 - Never edit an applied migration (none exist in this phase).
 - Do not create `src/server/auth/`, `src/server/audit.ts` or `src/shared/lib/money.ts` in this phase; later phases add them.
-- Phase done = `npm run lint && npm run typecheck && npm run test` plus `npm run test:integration` pass, then `/security-review`.
+- Phase done = `npm run lint && npm run typecheck && npm run test` plus `npm run test:integration` pass, and T052 (`/security-review`) shows no open issues.

@@ -81,9 +81,10 @@ no `next-themes`, no `eslint-config-prettier` (no stylistic ESLint rules are ena
   - `ORM_PATTERNS`: `@prisma/*`, `@/generated/*`, `**/generated/prisma`, `**/generated/prisma/**`.
   - `SERVER_PATTERNS`: `@/server/*`, `@/features/*/server/*`, `**/server/**` relative forms, `server-only`.
   - Group "all of `src/`": bans `ORM_PATTERNS`.
-  - Group "client code" (`src/features/*/client/**`, `src/shared/**`, `src/app/**/*.tsx` except route
-    files): bans `ORM_PATTERNS` **plus** `SERVER_PATTERNS` (with `allowTypeImports: true`, so
-    `src/shared/lib/error-messages.ts` can `import type` the error code union).
+  - Group "client code" (`src/features/*/client/**`, `src/shared/**`): bans `ORM_PATTERNS` **plus** `SERVER_PATTERNS` (with `allowTypeImports: true`, so
+    `src/shared/lib/error-messages.ts` can `import type` the error code union). `src/app/**` is **not**
+    in this group: `page.tsx` files are server components that call `requireUser()` and services
+    when prefetching, so they may import server code.
   - Override with no restriction: `src/**/*.repository.ts`, `src/server/db.ts`, `prisma/**`,
     `scripts/**`, `tests/integration/setup/**`.
 - **Why composed constants**: in flat config a later object that sets the same rule **replaces** the

@@ -48,7 +48,7 @@ A developer starting the next phase runs `npm run lint`, `npm run typecheck`, `n
 **Acceptance Scenarios**:
 
 1. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run lint`, **Then** it passes with no errors.
-2. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run typecheck`, **Then** it passes under strict type checking.
+2. **Given** a fresh clone with dependencies installed and the database client generated (`npm run db:generate`), **When** the developer runs `npm run typecheck`, **Then** it passes under strict type checking.
 3. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run test`, **Then** the sample unit test runs and passes without needing a database.
 4. **Given** the database container is running, **When** the developer runs `npm run test:integration`, **Then** the command first brings the dedicated test database (not the app database) up to the latest migrations, and the sample integration test connects to it, runs a real query, and passes.
 5. **Given** the database container is not running, **When** the developer runs `npm run test:integration`, **Then** it fails with a message that says the test database is not reachable.
@@ -126,13 +126,13 @@ A developer opens a pull request to `main`. Lint and typecheck run automatically
 **Start and run**
 
 - **FR-001**: Running `docker compose up` on a clean clone MUST start the database and the app with no other command, no file to copy and no manual edit. The app container MUST run a production build of the app (built inside the image, then started), not the development server.
-- **FR-002**: The app MUST start only after the database is healthy, MUST apply any pending database migrations before it starts serving, and MUST run the seed only when the database is empty (the seed may be empty in this phase).
+- **FR-002**: The app MUST start only after the database is healthy, MUST apply any pending database migrations before it starts serving, and MUST run the seed, which MUST make no change when data already exists (the seed is empty in this phase).
 - **FR-003**: The home page MUST be an empty page with Arabic text, with the document language set to Arabic and the direction set to right-to-left, and it MUST work on both mobile and desktop widths.
 - **FR-004**: The app MUST send basic HTTP security headers on every response (content-type sniffing protection, framing protection, referrer policy and a simple content security policy).
 
 **Structure and rules**
 
-- **FR-005**: The repository MUST contain the folder structure from AGENTS.md before any feature code: a routing-only app folder, a features folder, a backend infrastructure folder (database module, auth, HTTP wrapper, audit, environment, logger), a shared folder (lib, components, UI components), unit and integration test folders, and a database schema folder.
+- **FR-005**: The repository MUST contain the folder structure from AGENTS.md before any feature code: a routing-only app folder, a features folder, a backend infrastructure folder (database module, HTTP wrapper, environment, logger; the auth folder and the audit module are added by the phases that first use them, since they need tables that do not exist yet), a shared folder (lib, components, UI components), unit and integration test folders, and a database schema folder.
 - **FR-006**: The backend infrastructure MUST provide the shared building blocks later phases rely on: one database client with a transaction helper; a validated environment module; a logger that hides password, token, cookie and authorization fields; an application error type with error codes, an Arabic message for every code, and a route wrapper that checks the `Origin` header on data-changing requests, maps error codes to HTTP status, returns `{ data }` or `{ error: { code, message, fieldErrors? } }`, and returns a generic Arabic message for unknown errors with details only in the log.
 - **FR-007**: The client side MUST have one shared way to create the data-fetching client (a new one per server request, one shared instance in the browser), and the root layout MUST provide it together with a toast area.
 - **FR-008**: Every file in the backend infrastructure folder MUST be marked server-only so it cannot be bundled into client code.
