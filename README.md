@@ -1,7 +1,7 @@
 # Aqar Lite
 
 A multi-tenant system to sell real-estate units by installments (Next.js, PostgreSQL, Prisma).
-This README grows with each phase. The current phase is **1: database schema and seed** (the home page is still an empty Arabic RTL placeholder).
+This README grows with each phase. Through **phase 3**, database setup, authentication, units and clients are implemented. The home page remains a simple Arabic RTL landing page.
 
 ## Running
 
@@ -41,16 +41,16 @@ If you used an older volume from before the test database existed, reset it once
 Demo accounts. Log in at http://localhost:3000/login. Password for every account: `AqarLite#2026`
 (demo only; stored only as an Argon2id hash).
 
-| Company | Role | Name | Email |
-|---|---|---|---|
-| شركة الأفق للتطوير العقاري | Manager | مدير الأفق | `manager@ufuq.test` |
-| شركة الأفق للتطوير العقاري | Accountant | محاسب الأفق | `accountant@ufuq.test` |
-| شركة الأفق للتطوير العقاري | Sales rep | مندوب الأفق 1 | `sales1@ufuq.test` |
-| شركة الأفق للتطوير العقاري | Sales rep | مندوب الأفق 2 | `sales2@ufuq.test` |
-| شركة النخبة العقارية | Manager | مدير النخبة | `manager@nukhba.test` |
-| شركة النخبة العقارية | Accountant | محاسب النخبة | `accountant@nukhba.test` |
-| شركة النخبة العقارية | Sales rep | مندوب النخبة 1 | `sales1@nukhba.test` |
-| شركة النخبة العقارية | Sales rep | مندوب النخبة 2 | `sales2@nukhba.test` |
+| Company                    | Role       | Name           | Email                    |
+| -------------------------- | ---------- | -------------- | ------------------------ |
+| شركة الأفق للتطوير العقاري | Manager    | مدير الأفق     | `manager@ufuq.test`      |
+| شركة الأفق للتطوير العقاري | Accountant | محاسب الأفق    | `accountant@ufuq.test`   |
+| شركة الأفق للتطوير العقاري | Sales rep  | مندوب الأفق 1  | `sales1@ufuq.test`       |
+| شركة الأفق للتطوير العقاري | Sales rep  | مندوب الأفق 2  | `sales2@ufuq.test`       |
+| شركة النخبة العقارية       | Manager    | مدير النخبة    | `manager@nukhba.test`    |
+| شركة النخبة العقارية       | Accountant | محاسب النخبة   | `accountant@nukhba.test` |
+| شركة النخبة العقارية       | Sales rep  | مندوب النخبة 1 | `sales1@nukhba.test`     |
+| شركة النخبة العقارية       | Sales rep  | مندوب النخبة 2 | `sales2@nukhba.test`     |
 
 ## Development
 
@@ -102,6 +102,24 @@ apply all migrations to it before running, and refuse any database whose name do
 - **Rejected:** `output: "standalone"` (it leaves out the Prisma CLI needed for `migrate deploy`), a separate
   migration service (more moving parts), Testcontainers (the Compose database is enough).
 
+- **Conditional price updates (phase 3).** Unit edits run in one transaction. A changed price is updated
+  only where the unit is still `AVAILABLE` and its price equals the value read. PostgreSQL rechecks the
+  predicate after a concurrent writer commits: a reservation wins with `UNIT_PRICE_LOCKED`; a competing
+  price change yields `UNIT_CHANGED`. The audit entry records the exact replaced price in the same
+  transaction. Rejected: `SELECT … FOR UPDATE` (extra raw SQL/lock duration without extra safety here),
+  and an unconditional update after a read (races with reservations).
+- **Lazy reservation expiry.** Before unit reads and inside edits, one parameterized SQL `UPDATE` releases
+  only the company's `RESERVED` units with no unexpired reservation, using the database clock. `SOLD`
+  units stay sold. Rejected: separate find/update queries (a race window), and cron (not the agreed model).
+- **404 before 403.** Single-record services load by session company first; SALES client reads/edits
+  also scope by session owner. Missing records return 404 before checking edit roles. Creates check
+  roles first; malformed path ids return 404 before body parsing. Rejected: role-first record checks,
+  which violate uniform cross-company 404 responses. Routes still validate bodies before services.
+- **Duplicate unit numbers are field errors.** The database unique constraint on company/project/number
+  decides conflicts. After a failed transaction, the service maps the violation to a 400 with
+  `fieldErrors.number`. Rejected: read-before-write duplicate checks (racy), and a top-level 409
+  (does not put the message next to the field).
+
 ## Assumptions
 
 - Area is in whole m². Unit types are apartment, villa, townhouse and duplex.
@@ -121,6 +139,28 @@ apply all migrations to it before running, and refuse any database whose name do
   lock never extend it: it ends 15 minutes after the oldest of those 5 failures. While locked, the password is not
   checked, the message is the same generic one, and the response time stays similar. Emails are counted trimmed
   and lowercase, whether or not the account exists.
+
+### Phase 3: units and clients
+
+- Phases 1–2 supply the database schema, seed, login, sessions and roles; phase 3 builds on them.
+- Unit and client lists default to alphabetical ascending order: units by project name then number,
+  clients by name, with id as the final tie-breaker. Pagination defaults to 20, with a maximum of 50.
+- Only the unit **price** is locked for reserved or sold units. Managers may edit project name, number,
+  type, area and rooms in every status. Saving the same price is not a price change and writes no audit.
+- Creating a unit writes no price-change audit; only changing an existing price does.
+- Managers and accountants read all company clients, including their owning rep, but cannot add or edit
+  them. Only SALES creates clients and edits its own; the owner comes from the session and never changes.
+- Another rep's client returns 404, not 403, even on edits. Other-company units and clients also return
+  404 for every role. Company/owner fields sent by the caller are ignored.
+- Phone validation is deliberately loose: 7–20 characters, digits with optional leading `+`, spaces
+  and dashes, with no country-specific validation. Duplicate phone numbers are accepted across reps.
+- Project and client names are limited to 100 characters; unit number to 20; notes to 2,000; rooms to
+  0–50; whole-square-meter area to 1–100,000; price to above zero and at most 1,000,000,000 riyals.
+- Price inputs and filters display riyals with up to two decimals; API/URL/database values are integer
+  halalas. Notes are plain text, preserve line breaks, and are never interpreted as HTML.
+- Clients have pagination but no search or filtering. Neither units nor clients has delete functionality.
+- Reservation UI comes in phase 4; phase 3 tests create reservations directly in the test database.
+- Invalid list URL parameters show an error with a reset action instead of silently replacing the URL.
 
 ## Security
 
@@ -152,7 +192,7 @@ The "3 biggest risks" section is written in the final phase.
 
 ## Not done
 
-Business features (units, clients, reservations, contracts, payments, audit log) arrive in phases 1–7.
+Units and clients are implemented. Reservation, contract, payment and audit-log screens remain for later phases.
 
 - The app connects as the table owner, which could deliberately disable the append-only triggers.
   The fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and
