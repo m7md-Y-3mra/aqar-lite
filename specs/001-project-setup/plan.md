@@ -126,7 +126,8 @@ scripts/check-env.ts              # run with node --conditions=react-server; exi
 .github/workflows/ci.yml
 
 # Application
-src/instrumentation.ts            # register(): getEnv() on Node runtime, exit on failure
+src/instrumentation.ts            # register(): loads instrumentation-node only on the Node runtime
+src/instrumentation-node.ts       # getEnv(), exit 1 on failure (kept apart so the Edge build has no process.exit)
 src/app/layout.tsx                # <html lang="ar" dir="rtl">, IBM Plex Sans Arabic, <Providers>
 src/app/page.tsx                  # placeholder Arabic home page
 src/app/globals.css               # tailwind + shadcn theme tokens

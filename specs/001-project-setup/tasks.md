@@ -201,7 +201,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 ### Tests for User Story 4
 
-- [ ] T042 [P] [US4] Write `tests/unit/server/env.test.ts`, testing `parseEnv` directly. Cases:
+- [X] T042 [P] [US4] Write `tests/unit/server/env.test.ts`, testing `parseEnv` directly. Cases:
   - (a) a valid source returns typed values, and `LOG_LEVEL` defaults to `info`.
   - (b) `DATABASE_URL` missing → `EnvError` whose message contains `DATABASE_URL`.
   - (c) `APP_ORIGIN: "   "` (whitespace) → error naming `APP_ORIGIN`.
@@ -210,14 +210,14 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   - (f) both missing → one error naming **both**.
   - (g) source `DATABASE_URL: "postgresql://u:SuperSecret123@h/db"` with `APP_ORIGIN` missing → the message does **not** contain `SuperSecret123`.
   - (h) the set of keys in the env schema equals the set of non-tooling keys in `.env.example`: parse the file and ignore keys under the `# Tooling only` comment.
-- [ ] T043 [P] [US4] Write `tests/unit/scripts/check-env.test.ts`. Spawn `process.execPath` with `["--conditions=react-server", "scripts/check-env.ts"]` via `spawnSync`, using an env with `PATH` only plus chosen variables. Cases:
+- [X] T043 [P] [US4] Write `tests/unit/scripts/check-env.test.ts`. Spawn `process.execPath` with `["--conditions=react-server", "scripts/check-env.ts"]` via `spawnSync`, using an env with `PATH` only plus chosen variables. Cases:
   - (a) all valid → exit 0, stdout contains `Environment OK`;
   - (b) `APP_ORIGIN` absent → exit 1, stderr contains `APP_ORIGIN`;
   - (c) `DATABASE_URL` empty and `APP_ORIGIN` absent → exit 1, stderr names both, and the other secret value never appears.
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Create `src/instrumentation.ts`. Export `async function register()`. When `process.env.NEXT_RUNTIME === "nodejs"`, `const { getEnv, EnvError } = await import("@/server/env")`, then call `getEnv()` inside `try`. On `EnvError`, write the message to stderr and `process.exit(1)`; rethrow anything else. This covers `next start` / `npm run dev` without the entrypoint.
+- [X] T044 [US4] Create `src/instrumentation.ts`. Export `async function register()`. When `process.env.NEXT_RUNTIME === "nodejs"`, `const { getEnv, EnvError } = await import("@/server/env")`, then call `getEnv()` inside `try`. On `EnvError`, write the message to stderr and `process.exit(1)`; rethrow anything else. This covers `next start` / `npm run dev` without the entrypoint.
 - [ ] T045 [US4] Validate US4. Run `npm run test` (T042 and T043 green). Check the container with `docker compose run --rm -e APP_ORIGIN= app`: exit code 1, the message names `APP_ORIGIN`, and Next never starts. Check `next start` directly: `npm run build && env -u APP_ORIGIN npm start` exits with the same message.
 
 **Checkpoint**: A missing setting stops startup with a clear message, proved by tests and in the container.
