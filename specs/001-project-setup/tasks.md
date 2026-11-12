@@ -248,7 +248,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T048 [P] Create `README.md`.
+- [X] T048 [P] Create `README.md`.
   - **Running**: needs Git and Docker only; `docker compose up`; app on `http://localhost:3000` (use `localhost`, not `127.0.0.1`, because of `APP_ORIGIN`); DB on 5432; run `docker compose down -v` once if an old volume exists (the test DB is created only on a fresh volume).
   - **Development**: `npm ci`, `cp .env.example .env`, `npm run db:generate`, then the npm scripts table from contracts/commands.md.
   - **Tests**: `docker compose up -d db` then `npm run test:integration`.
@@ -256,8 +256,8 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   - **Assumptions**: the spec.md Assumptions plus clarifications Q1/Q2, and that CI is not a required check.
   - **Security**: the known limit that CSP allows inline scripts (no nonce, no proxy).
   - **Not done** and **AI tools**: section stubs, each with one line of real content for phase 0.
-- [ ] T049 Run `npm audit --audit-level=high`. It must report no high or critical findings. If a fix needs a version change outside the pins, stop and ask the user.
-- [ ] T050 Run `npx prettier --check .` and fix formatting with `npm run format` (no logic changes).
+- [X] T049 Run `npm audit --audit-level=high`. It must report no high or critical findings. If a fix needs a version change outside the pins, stop and ask the user.
+- [X] T050 Run `npx prettier --check .` and fix formatting with `npm run format` (no logic changes).
 - [ ] T051 Final gate on a clean clone of the branch into a temp folder: `docker compose down -v`, then the full quickstart.md §1–§6, then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. Record the results in the phase notes. Do not mark the phase done if any step fails.
 - [ ] T052 Run `/security-review` on the branch diff (constitution, Development Workflow: a phase is done only when it shows no open issues). Fix every finding, or record it with a reason in the README "Security" section if it is out of scope for phase 0. Re-run `npm run lint && npm run typecheck && npm run test` after any fix.
 
