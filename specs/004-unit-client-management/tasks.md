@@ -220,36 +220,36 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T040 [US2] Add to `tests/integration/features/units/server/units.service.test.ts`:
+- [X] T040 [US2] Add to `tests/integration/features/units/server/units.service.test.ts`:
   - **"create"**: "manager creates AVAILABLE unit", "ignores hand-sent status and companyId" (pass `unitInputSchema.parse({ ...valid, status: "SOLD", companyId: B })`), "duplicate number gives fieldErrors.number" (expect `AppError` `VALIDATION_ERROR` with `fieldErrors.number[0] === UNIT_NUMBER_TAKEN`), "same number in another company is allowed".
   - **"role checks"**: "SALES cannot create", "ACCOUNTANT cannot create" (`FORBIDDEN`, no row added).
   - **"audit"**: "create writes no row" (count of `audit_logs` rows for the company is unchanged).
-- [ ] T041 [P] [US2] Add to `tests/integration/features/units/server/units.routes.test.ts`: "POST /api/units with a valid body as ACCOUNTANT returns 403" and "POST with a foreign Origin returns 403 INVALID_ORIGIN".
+- [X] T041 [P] [US2] Add to `tests/integration/features/units/server/units.routes.test.ts`: "POST /api/units with a valid body as ACCOUNTANT returns 403" and "POST with a foreign Origin returns 403 INVALID_ORIGIN".
 
 ### Implementation for User Story 2
 
 - [x] T042 [US2] Add `insertUnit(companyId, input: UnitInput, tx?)` to `src/features/units/server/units.repository.ts`. It runs `create` with `{ ...input, price: BigInt(input.price), companyId }` and never takes `status`.
-- [ ] T043 [US2] Add `createUnit(user, input)` to `src/features/units/server/units.service.ts`:
+- [X] T043 [US2] Add `createUnit(user, input)` to `src/features/units/server/units.service.ts`:
   - `user.role !== "MANAGER"` → `FORBIDDEN`;
   - `try insertUnit`;
   - `catch`: `isUniqueViolation(err, "units_company_id_project_name_number_key")` → `AppError("VALIDATION_ERROR", { number: [UNIT_NUMBER_TAKEN] })`, otherwise rethrow.
 
   T040 must pass.
-- [ ] T044 [US2] Add `createUnitHandler` to `src/features/units/server/units.routes.ts` (`unitInputSchema.parse(await readJson(req))` → `createUnit` → `{ data, status: 201 }`). Export it from `server/index.ts`. Add `export { createUnitHandler as POST }` to `src/app/api/units/route.ts`. T041 must pass.
-- [ ] T045 [US2] Create `src/features/units/client/unit-form/use-unit-form.ts`:
+- [X] T044 [US2] Add `createUnitHandler` to `src/features/units/server/units.routes.ts` (`unitInputSchema.parse(await readJson(req))` → `createUnit` → `{ data, status: 201 }`). Export it from `server/index.ts`. Add `export { createUnitHandler as POST }` to `src/app/api/units/route.ts`. T041 must pass.
+- [X] T045 [US2] Create `src/features/units/client/unit-form/use-unit-form.ts`:
   - `useForm<UnitInput>({ resolver: zodResolver(unitInputSchema), defaultValues })`;
   - `useMutation` POSTing to `/api/units` with `apiFetch`;
   - `onSuccess`: `invalidateQueries({ queryKey: unitKeys.all })`, a `toast.success("تمت إضافة الوحدة")`, then `router.push("/units")`;
   - `onError`: `applyApiError(err, form.setError)`.
 
   Structure it so T052 can add edit mode (`mode: "create" | "edit"`, `unit?: UnitDto`).
-- [ ] T046 [US2] Create `src/features/units/client/unit-form/unit-form.tsx` and `index.ts`:
+- [X] T046 [US2] Create `src/features/units/client/unit-form/unit-form.tsx` and `index.ts`:
   - fields: projectName, number (`Input`), type (`NativeSelect` with `unit-labels.ts`), area and rooms (`Input type="number"` with `valueAsNumber`), price (`MoneyInput` via `Controller`);
   - each field has a `Label` and its error message under it;
   - a `root` error shows as an `Alert` at the top;
   - the submit button is disabled while pending.
-- [ ] T047 [US2] Create `src/app/(app)/units/new/page.tsx`: `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`; render `<UnitForm mode="create" />`.
-- [ ] T048 [US2] In `src/features/units/client/units-page/units-page.tsx`, show an "إضافة وحدة" link (`buttonVariants`) to `/units/new` only when `role === "MANAGER"`.
+- [X] T047 [US2] Create `src/app/(app)/units/new/page.tsx`: `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`; render `<UnitForm mode="create" />`.
+- [X] T048 [US2] In `src/features/units/client/units-page/units-page.tsx`, show an "إضافة وحدة" link (`buttonVariants`) to `/units/new` only when `role === "MANAGER"`.
 
 **Checkpoint**: US1 + US2 work. T040 and T041 pass.
 
@@ -263,7 +263,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T049 [US3] Add to `tests/integration/features/units/server/units.service.test.ts`:
+- [X] T049 [US3] Add to `tests/integration/features/units/server/units.service.test.ts`:
   - **"price lock"**:
     - "RESERVED unit price change → UNIT_PRICE_LOCKED, price unchanged";
     - "SOLD unit → UNIT_PRICE_LOCKED";
@@ -274,14 +274,14 @@ description: "Task list for phase 3: units and clients"
   - **"audit"**: "one PRICE_CHANGED with oldPrice/newPrice/userId/entityId", "refused change writes no row", "same price writes no row".
   - **"update"**: "SOLD unit: area change saved, no audit", "hand-sent status is ignored", "renaming to a taken number gives fieldErrors.number".
   - **"role checks"**: "SALES cannot update", "ACCOUNTANT cannot update" (`FORBIDDEN`, record unchanged).
-- [ ] T050 [P] [US3] Add to `tests/integration/features/units/server/units.routes.test.ts`: "PATCH reserved unit with a new price returns 409 UNIT_PRICE_LOCKED" and "PATCH with a valid body as SALES returns 403".
+- [X] T050 [P] [US3] Add to `tests/integration/features/units/server/units.routes.test.ts`: "PATCH reserved unit with a new price returns 409 UNIT_PRICE_LOCKED" and "PATCH with a valid body as SALES returns 403".
 
 ### Implementation for User Story 3
 
 - [x] T051 [US3] Add two functions to `src/features/units/server/units.repository.ts`:
   - `updateUnitDetails(companyId, id, fields: Pick<UnitInput, "projectName" | "number" | "type" | "area" | "rooms">, tx?)`: `updateMany({ where: { id, companyId }, data: { projectName, number, type, area, rooms } })` → count.
   - `updateUnitPriceIfAvailable(companyId, id, input: UnitInput, oldPrice: bigint, tx?)`: `updateMany({ where: { id, companyId, status: "AVAILABLE", price: oldPrice }, data: { ...fields, price: BigInt(input.price) } })` → count.
-- [ ] T052 [US3] Add `updateUnit(user, id, input)` to `src/features/units/server/units.service.ts`, following research R1 exactly. Run `withTransaction(async (tx) => …)`:
+- [X] T052 [US3] Add `updateUnit(user, id, input)` to `src/features/units/server/units.service.ts`, following research R1 exactly. Run `withTransaction(async (tx) => …)`:
   1. `releaseExpired(companyId, tx)`;
   2. `findUnit` → `null` → `NOT_FOUND`;
   3. role ≠ MANAGER → `FORBIDDEN`;
@@ -291,20 +291,20 @@ description: "Task list for phase 3: units and clients"
      - count 0 → re-read with `findUnit`: `null` → `NOT_FOUND`; `status !== "AVAILABLE"` → `UNIT_PRICE_LOCKED`; else `UNIT_CHANGED`.
 
   Return `toUnitDto` of the re-read row. Wrap the whole transaction in `try/catch` for the duplicate number, as in T043. T049 must pass.
-- [ ] T053 [US3] Add `updateUnitHandler` to `src/features/units/server/units.routes.ts`: `unitIdSchema` failure → `NOT_FOUND`, then `unitInputSchema.parse(await readJson(req))`, then `updateUnit`. Export it from `server/index.ts`. Add `export { updateUnitHandler as PATCH }` to `src/app/api/units/[id]/route.ts`. T050 must pass.
-- [ ] T054 [US3] Extend `src/features/units/client/unit-form/use-unit-form.ts` and `unit-form.tsx` for `mode="edit"`:
+- [X] T053 [US3] Add `updateUnitHandler` to `src/features/units/server/units.routes.ts`: `unitIdSchema` failure → `NOT_FOUND`, then `unitInputSchema.parse(await readJson(req))`, then `updateUnit`. Export it from `server/index.ts`. Add `export { updateUnitHandler as PATCH }` to `src/app/api/units/[id]/route.ts`. T050 must pass.
+- [X] T054 [US3] Extend `src/features/units/client/unit-form/use-unit-form.ts` and `unit-form.tsx` for `mode="edit"`:
   - `defaultValues` from `useQuery(unitDetailOptions(id))`;
   - PATCH to `/api/units/{id}`;
   - on success, invalidate `unitKeys.all` and show the toast "تم حفظ التعديلات";
   - when `unit.status !== "AVAILABLE"`, render the price `MoneyInput` as `disabled`, with the hint "لا يمكن تغيير السعر لأن الوحدة محجوزة أو مباعة";
   - on a 409 (`UNIT_PRICE_LOCKED` / `UNIT_CHANGED`), call `applyApiError` (root alert) and `refetch()` the detail query, so the current status and price show.
-- [ ] T055 [US3] Create `src/app/(app)/units/[id]/edit/page.tsx`:
+- [X] T055 [US3] Create `src/app/(app)/units/[id]/edit/page.tsx`:
   - `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`;
   - `unitIdSchema.safeParse(id)` failure → `notFound()`;
   - `prefetchQuery({ queryKey: unitKeys.detail(id), queryFn: () => getUnit(user, id) })`;
   - `queryClient.getQueryState(unitKeys.detail(id))?.error` is an `AppError` with code `NOT_FOUND` → `notFound()` (research R8);
   - render `HydrationBoundary` + `<UnitForm mode="edit" id={id} />`.
-- [ ] T056 [US3] In `src/features/units/client/units-page/units-page.tsx`, pass `canEdit={role === "MANAGER"}` to `UnitsTable`, so the edit link shows for managers only.
+- [X] T056 [US3] In `src/features/units/client/units-page/units-page.tsx`, pass `canEdit={role === "MANAGER"}` to `UnitsTable`, so the edit link shows for managers only.
 
 **Checkpoint**: US1–US3 work. Units are complete, and all units tests pass.
 
