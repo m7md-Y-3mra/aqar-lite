@@ -12,11 +12,20 @@
 
 > **Dependency**: This branch was cut from `main`, which does not have phase 2 (login, sessions, roles, the app shell) or phase 3 (units, clients, and the step that returns units with an expired reservation to "available"). Both phases must be merged into `main`, and this branch rebased onto it, before `/speckit-implement`. The plan may be written now.
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: Should the number of active reservations be limited (per client or per rep)? → A: No limit. A client may hold active reservations on several units, and a rep may hold any number. The README records the hoarding risk and how a cap could be added later.
+- Q: Where does a sales rep start a reservation? → A: Only from a "reserve" action on each available unit in the units list. It opens a small dialog where the rep picks one of their own clients. No reserve action on the client page.
+- Q: On the units list, what does a user see about a reserved unit? → A: The "reserved" status and the reservation's expiry date and time. Never the client or the sales rep.
+- Q: Can the accountant see the reservations list? → A: No. The phase 2 navigation map stays as it is; listing reservations as an accountant returns 403. The accountant sees reservation details on the contract page (phase 5).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Sales rep reserves an available unit for their own client (Priority: P1)
 
-A sales rep finds an available unit in the units list, chooses "reserve", picks one of their own clients, and confirms. The unit becomes reserved for 72 hours from that moment. No other rep can reserve it while the reservation is active. If another rep reserved the same unit a moment earlier, the rep sees a clear Arabic message that the unit was just reserved, and nothing is saved.
+A sales rep finds an available unit in the units list, chooses "reserve" on its row, picks one of their own clients in a small dialog, and confirms. The unit becomes reserved for 72 hours from that moment. No other rep can reserve it while the reservation is active. If another rep reserved the same unit a moment earlier, the rep sees a clear Arabic message that the unit was just reserved, and nothing is saved.
 
 **Why this priority**: Reservation is the first step of the sales flow. A contract (phase 5) can only be created from an active reservation. The "two reps at the same moment" rule is named in the brief and must hold under real concurrent requests.
 
@@ -34,6 +43,7 @@ A sales rep finds an available unit in the units list, chooses "reserve", picks 
 8. **Given** a sales rep, **When** they send by hand an expiry time, a different sales rep, a company or a unit status together with the reservation, **Then** those values are ignored: the expiry is still 72 hours from creation, the rep is the logged-in rep, and the company is the rep's own company.
 9. **Given** a sales rep with no clients, **When** they open the reserve action on an available unit, **Then** they see a clear Arabic message that they must add a client first, with a link to add one.
 10. **Given** a reservation request that is refused for any reason, **When** the refusal is returned, **Then** the unit's status is exactly what it was before the request.
+11. **Given** a unit reserved by sales rep 1, **When** sales rep 2, a manager or an accountant views the units list, **Then** the unit shows as "reserved" with the reservation's expiry date and time in Saudi time, and the client's name and the rep's name are not shown.
 
 ---
 
@@ -95,7 +105,7 @@ A manager opens the reservations page and sees every active reservation in their
 - **Exactly 72 hours**: a reservation is active only while its expiry time is still in the future. At the exact expiry moment it counts as expired.
 - **Double click on "reserve"**: the button cannot be pressed again while the request runs. If a second request still arrives, it is refused with the "no longer available" message and the first reservation stays.
 - **Same rep, two clients, one unit**: the second attempt is refused like any other attempt on a reserved unit.
-- **One client, several units**: allowed (see Assumptions). Each unit still has at most one active reservation.
+- **One client, several units**: allowed, with no limit per client or per rep (see Clarifications). Each unit still has at most one active reservation.
 - **Reserve right after expiry, before anyone opened the system**: the expired reservation is released first, then the new reservation succeeds. The unit is never treated as reserved by an expired reservation.
 - **Two reps race for a unit whose reservation just expired**: the same rule as Story 1 applies: exactly one succeeds.
 - **Price change race (phase 3)**: once a unit is reserved, a manager's price change on it is refused. This phase does not change that rule.
@@ -138,7 +148,8 @@ A manager opens the reservations page and sees every active reservation in their
 
 **User interface**
 
-- **FR-019**: The reserve action MUST be shown only to sales reps and only on available units. It MUST let the rep choose only among their own clients. If the rep has no clients, it MUST show a clear Arabic message with a link to add a client.
+- **FR-019**: The reserve action MUST appear only on the units list, on the row of each available unit, and only for sales reps. It MUST open a dialog that lets the rep choose only among their own clients. If the rep has no clients, the dialog MUST show a clear Arabic message with a link to add a client. There is no reserve action anywhere else (not on the client page).
+- **FR-019a**: For a reserved unit, the units list MUST show the reservation's expiry date and time in Saudi time (Asia/Riyadh) next to the "reserved" status, for every role. It MUST NOT show the reservation's client or sales rep.
 - **FR-020**: While a reservation request runs, the reserve button MUST show a loading state and MUST NOT be pressed again. A conflict (FR-004) MUST be shown as a message at the top of the form, and the unit's shown status MUST be refreshed so the rep sees it is no longer available.
 - **FR-021**: After a successful reservation, the units list and the reservations list MUST show the new state without a manual page reload.
 - **FR-022**: The reservations page MUST show a loading state, an empty state with a clear Arabic message, and an error state with a retry action.
@@ -183,9 +194,10 @@ A manager opens the reservations page and sees every active reservation in their
 
 ## Assumptions
 
-- **One client, several reservations** (clarify focus in `docs/phases.md`): a client may hold active reservations on several different units at the same time. The brief does not limit it, and a buyer may compare units. Each unit still has at most one active reservation. To confirm in `/speckit-clarify`.
-- **Where the rep sees reservations** (clarify focus in `docs/phases.md`): a "Reservations" page in the app navigation, for sales reps (own) and managers (whole company). The reserve action starts from the units list (and the unit page, if phase 3 has one). To confirm in `/speckit-clarify`.
-- **Accountant**: has no reservations view, following the phase 2 navigation map. The accountant sees the reservation details they need on the contract page (phase 5).
+- **No reservation limit** (confirmed in Clarifications): a client may hold active reservations on several different units at the same time, and a rep may hold any number. The brief does not limit it, and a buyer may compare units. Each unit still has at most one active reservation. Risk: one rep can block many units for 72 hours. The README "Assumptions" section records this and names the fix for later (a cap per rep or per client).
+- **Where reservations happen** (confirmed in Clarifications): reps reserve only from the units list. Reps (own) and managers (whole company) see active reservations on a "Reservations" page in the app navigation.
+- **Units list detail** (confirmed in Clarifications): every role sees the expiry of a reserved unit on the units list, so reps know when it may be free again. The client and rep stay hidden, so another rep's client is never revealed.
+- **Accountant** (confirmed in Clarifications): has no reservations view, following the phase 2 navigation map. The accountant sees the reservation details they need on the contract page (phase 5).
 - **"Active"**: expiry time strictly in the future and no approved contract. At the exact expiry moment the reservation is expired.
 - **72 hours** are measured from the server's clock at the moment the reservation is saved, as an exact duration (not calendar days). The expiry is shown to users in Saudi time (Asia/Riyadh).
 - **Status codes**: role not allowed → 403; another rep's client, or a unit or client of another company or that does not exist → 404; unit not available (lost the race, already reserved, or sold) → 409; invalid input → 400. One conflict message covers every "not available" case, because the rep cannot tell a fresh race from an older reservation, and both mean "pick another unit".
