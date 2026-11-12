@@ -323,13 +323,13 @@ description: "Task list for phase 2: login, logout and app shell"
 
 **Independent Test**: at 375 px and 1280 px, as a manager, a sales rep and an accountant: RTL, no horizontal scroll, the menu works by touch and keyboard, and only allowed items show (quickstart §4).
 
-- [ ] T038 [P] [US6] Write `tests/unit/shared/lib/navigation.test.ts` first, then `src/shared/lib/navigation.ts`:
+- [x] T038 [P] [US6] Write `tests/unit/shared/lib/navigation.test.ts` first, then `src/shared/lib/navigation.ts`:
   - `NAV_ITEMS: { href, label, roles }[]` with only `{ href: "/", label: "الرئيسية", roles: all }` in this phase;
   - the full map from contracts/ui-shell.md "Navigation map" goes in a comment for later phases;
   - `navItemsFor(role)`.
 
   Tests: every role gets Home; `navItemsFor` filters by role. Use a test-local item list with a manager-only item to prove the filter excludes it for SALES and ACCOUNTANT.
-- [ ] T039 [US6] Create `src/shared/components/app-shell/`:
+- [x] T039 [US6] Create `src/shared/components/app-shell/`:
   - `app-shell.tsx` (`"use client"`): reads `useCurrentUser()`.
     - Header: "عقار لايت", the company name, the user name + `ROLE_LABELS[role]`, and `<LogoutButton />`.
     - At `md` and up, a sidebar on the start side with the nav.
@@ -340,7 +340,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - `index.ts`.
 
   Logical classes only. No horizontal scroll from 360 px.
-- [ ] T040 [US6] Change `src/app/(app)/layout.tsx` to `<CurrentUserProvider user={…}><AppShell>{children}</AppShell></CurrentUserProvider>`, and remove the temporary logout button render from T036. `npm run build` must pass.
+- [x] T040 [US6] Change `src/app/(app)/layout.tsx` to `<CurrentUserProvider user={…}><AppShell>{children}</AppShell></CurrentUserProvider>`, and remove the temporary logout button render from T036. `npm run build` must pass.
 - [ ] T041 [US6] Manual check per quickstart §4: DevTools at 375 px and 1280 px, logged in as `manager@ufuq.test`, `sales1@ufuq.test` and `accountant@ufuq.test`. Check RTL, no horizontal scroll, Home is the only item, and the menu opens and closes by click, Enter/Space and Escape. Check that the login page fits at 375 px, and that no page shows a sign-up, "forgot password" or user-management link (FR-002). Fix what fails. Commit `feat: add responsive RTL app shell with role-filtered navigation`.
 
 **Checkpoint**: all user stories are complete.
@@ -349,7 +349,7 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T042 Update `README.md`:
+- [x] T042 Update `README.md`:
   - Assumptions: remove "There is no login yet…" and "Until sessions exist (phase 2)…"; add "Sessions last a fixed 7 days; logout ends only the current device".
   - Security: add the phase 2 controls (Argon2id, DB sessions storing only the token hash, the cookie attributes, the generic login message, equal hashing work, the per-email lock) next to the existing lock limits.
   - Running: under the seed accounts, add "Open http://localhost:3000 (not 127.0.0.1: the origin check compares with `APP_ORIGIN`)".
@@ -359,7 +359,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - **If Safari (or any tested browser) refuses it, STOP and ask the user before changing the cookie** (research R2).
   - Record the timing result (SC-005) in the commit message.
   - Record the page gate checks in the commit message (FR-020, FR-022, SC-007; automated only by the optional Playwright test, brief 3.8): `/` with no cookie → `/login`; `/` after logout with the old cookie value pasted back in DevTools → `/login`; `/login` while logged in → `/`.
-- [ ] T044 Security self-check:
+- [x] T044 Security self-check:
   - `grep -rn "console\." src/` → none;
   - `grep -rn "passwordHash" src/` → only the auth repository/service and `password.ts`;
   - no `localStorage`/`sessionStorage` in `src/`;
