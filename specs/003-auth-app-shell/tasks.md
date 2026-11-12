@@ -341,7 +341,7 @@ description: "Task list for phase 2: login, logout and app shell"
 
   Logical classes only. No horizontal scroll from 360 px.
 - [x] T040 [US6] Change `src/app/(app)/layout.tsx` to `<CurrentUserProvider user={…}><AppShell>{children}</AppShell></CurrentUserProvider>`, and remove the temporary logout button render from T036. `npm run build` must pass.
-- [ ] T041 [US6] Manual check per quickstart §4: DevTools at 375 px and 1280 px, logged in as `manager@ufuq.test`, `sales1@ufuq.test` and `accountant@ufuq.test`. Check RTL, no horizontal scroll, Home is the only item, and the menu opens and closes by click, Enter/Space and Escape. Check that the login page fits at 375 px, and that no page shows a sign-up, "forgot password" or user-management link (FR-002). Fix what fails. Commit `feat: add responsive RTL app shell with role-filtered navigation`.
+- [x] T041 [US6] Manual check per quickstart §4: DevTools at 375 px and 1280 px, logged in as `manager@ufuq.test`, `sales1@ufuq.test` and `accountant@ufuq.test`. Check RTL, no horizontal scroll, Home is the only item, and the menu opens and closes by click, Enter/Space and Escape. Check that the login page fits at 375 px, and that no page shows a sign-up, "forgot password" or user-management link (FR-002). Fix what fails. Commit `feat: add responsive RTL app shell with role-filtered navigation`.
 
 **Checkpoint**: all user stories are complete.
 
