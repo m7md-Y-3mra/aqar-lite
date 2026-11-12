@@ -152,11 +152,11 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 1 ⚠️ (write first, see them fail)
 
-- [ ] T026 [US1] Write `tests/integration/features/units/server/units.service.test.ts` with these describe blocks, using `makeTwoCompanies` (T021) and `makeUnit`/`makeReservation`/`makeClient` (db-fixtures):
+- [X] T026 [US1] Write `tests/integration/features/units/server/units.service.test.ts` with these describe blocks, using `makeTwoCompanies` (T021) and `makeUnit`/`makeReservation`/`makeClient` (db-fixtures):
   - **"list"**: "filters by status", "price range includes both ends", "sorts by area desc", "sorts by price asc", "default order is project then number", "pages with equal prices never repeat or skip" (5 units with the same price; page 1 + page 2 with pageSize 3 are disjoint and together equal all), "page past the end is empty with total".
   - **"expiry"**: "expired reservation lists as AVAILABLE on next read" (unit RESERVED + reservation `expiresAt` in the past, set with `getDb().reservation.update`), "active reservation stays RESERVED", "SOLD with expired reservation stays SOLD", "getUnit releases too".
   - **"tenant isolation"**: "lists only the session company's units".
-- [ ] T027 [P] [US1] Write `tests/integration/features/units/server/units.routes.test.ts` › "GET /api/units returns 400 with fieldErrors for pageSize=51" and "… for minPrice > maxPrice". It calls the exported `GET` from `src/app/api/units/route.ts` with a `Request` that carries the session cookie from phase 2's test helper (T002), and asserts the `{ error: { code: "VALIDATION_ERROR", fieldErrors } }` shape.
+- [X] T027 [P] [US1] Write `tests/integration/features/units/server/units.routes.test.ts` › "GET /api/units returns 400 with fieldErrors for pageSize=51" and "… for minPrice > maxPrice". It calls the exported `GET` from `src/app/api/units/route.ts` with a `Request` that carries the session cookie from phase 2's test helper (T002), and asserts the `{ error: { code: "VALIDATION_ERROR", fieldErrors } }` shape.
 
 ### Implementation for User Story 1
 
@@ -165,18 +165,18 @@ description: "Task list for phase 3: units and clients"
   - `findUnits(companyId, query, tx?)`: a `where` built from status and the price range (`gte`/`lte` as `BigInt`); `orderBy` per research R12, always ending in `{ id: "asc" }`; `skip`/`take` from `toSkip`.
   - `countUnits(companyId, query, tx?)`: the same `where`.
   - `findUnit(companyId, id, tx?)`: `findFirst({ where: { id, companyId } })`.
-- [ ] T029 [US1] Create `src/features/units/server/units.service.ts` with:
+- [X] T029 [US1] Create `src/features/units/server/units.service.ts` with:
   - `toUnitDto(row)`: `price: Number(row.price)`; no `companyId` in the DTO;
   - `listUnits(user: SessionUser, query: UnitListQuery): Promise<UnitPage>`: `releaseExpired`, then `findUnits` and `countUnits` in parallel;
   - `getUnit(user, id): Promise<UnitDto>`: `releaseExpired`, then `findUnit`; `null` → `throw new AppError("NOT_FOUND")`.
 
   T026 must pass.
-- [ ] T030 [US1] Create `src/features/units/server/units.routes.ts`:
+- [X] T030 [US1] Create `src/features/units/server/units.routes.ts`:
   - `listUnitsHandler = handleRoute({ auth: "user", handler })`: parses `unitListQuerySchema.parse(toQueryInput(new URL(req.url).searchParams))`, then calls `listUnits`;
   - `getUnitHandler`: `unitIdSchema.safeParse(params.id)`; failure → `AppError("NOT_FOUND")`; then `getUnit`.
 
   Create `src/features/units/server/index.ts` exporting `listUnits`, `getUnit`, `releaseExpired` and the handlers.
-- [ ] T031 [P] [US1] Create `src/app/api/units/route.ts` (`export { listUnitsHandler as GET } from "@/features/units/server"`) and `src/app/api/units/[id]/route.ts` (`export { getUnitHandler as GET }`). T027 must pass.
+- [X] T031 [P] [US1] Create `src/app/api/units/route.ts` (`export { listUnitsHandler as GET } from "@/features/units/server"`) and `src/app/api/units/[id]/route.ts` (`export { getUnitHandler as GET }`). T027 must pass.
 - [ ] T032 [P] [US1] Create `src/features/units/client/units.queries.ts`:
   - `unitListOptions(query)` = `queryOptions({ queryKey: unitKeys.list(query), queryFn: () => apiFetch<UnitPage>("/api/units?" + params) })`, which builds params only from defined query values;
   - `unitDetailOptions(id)` the same way, with `unitKeys.detail(id)`.
