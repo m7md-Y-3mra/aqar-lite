@@ -65,15 +65,15 @@ The main proofs are service-level integration tests on real Postgres.
 | II | Server-Side Authorization | PASS | The role and ownership check is in each service function (R3). Pages for manager-only or rep-only screens also check the role on the server. Input schemas use `.pick()` with no `status`, `companyId` or `salesRepId`. Proven by "role checks" and "ignores hand-sent fields". |
 | III | Financial Accuracy | PASS | Price is `bigint` in halalas in the DB and an integer in DTOs, query and body. Conversion happens only in `src/shared/lib/money.ts` (R5). No float math. |
 | IV | Atomic and Concurrency-Safe | PASS | The price edit and the audit row are in one `withTransaction`. The conditional update re-checks status and price (R1). Status changes only through `releaseExpired` (RESERVED → AVAILABLE). Users cannot write status. |
-| V | Database-Enforced Integrity | PASS | Existing price/area/rooms/trim checks and the unique `(company, project, number)` index are reused. The new migration adds client name/phone checks (R9). Audit rows are append-only (phase 1 triggers). |
+| V | Database-Enforced Integrity | PASS | Existing price/area/rooms/trim checks and the unique `(company, project, number)` index are reused. The new migration adds client name/phone checks and a unit price cap (R9). Audit rows are append-only (phase 1 triggers). |
 | VI | Layered Architecture | PASS | Flow: `route.ts` → `<f>.routes.ts` → `<f>.service.ts` → `<f>.repository.ts`. Only repositories and `src/server/db.ts` touch Prisma (enforced by lint). `units` and `clients` do not import each other. Strict TS, no `any`. |
 | VII | Security by Default | PASS | Zod on every body, query and path id. Raw SQL only as a tagged template (bound parameters). Notes are rendered as text, and `dangerouslySetInnerHTML` is banned by a test (R10). Errors are generic Arabic messages. `PRICE_CHANGED` is audited. |
 | VIII | Scope Discipline | PASS | No delete, no client search, no unit detail page beyond the edit form, no new dependency. Assumptions go to the README. |
 
 ## Departures from the agreed plan notes
 
-1. **Schema change**: one new migration with `clients_name_check` and `clients_phone_check` (R9).
-   - **Why**: constitution V. Phase 1 has the same trim checks on unit text but none on clients.
+1. **Schema change**: one new migration with `clients_name_check`, `clients_phone_check` and `units_price_max_check` (R9).
+   - **Why**: constitution V. Phase 1 has the same trim checks on unit text but none on clients, and no upper bound on price. The cap (10^11 halalas) keeps `Number(price)` exact.
    - It adds no column and no table.
 2. **Role check order**: the record lookup (404) runs before the role check (403) for reads and edits of one record (R3).
    - **Why**: the spec matrix and FR-022 require 404 for another company's record for every role. A role-first check would answer 403.
@@ -81,6 +81,10 @@ The main proofs are service-level integration tests on real Postgres.
 3. **Unchanged-price edits** do not use the `WHERE status = 'AVAILABLE'` condition (R1).
    - **Why**: FR-011 says an edit that keeps the price is never refused because of the status.
    - Price changes still use the agreed condition, plus `price = oldPrice`.
+
+4. **A second price conflict code, `UNIT_CHANGED` (409)**: returned when the unit is still available but another manager changed its price first, so the conditional update matched 0 rows (R1).
+   - **Why**: `UNIT_PRICE_LOCKED` would be the wrong message in that case. The spec's Edge Cases ("Two managers change one price at once") now describe this behaviour.
+   - Proven by "price lock › two concurrent price edits never share an oldPrice".
 
 No other departures. Every agreed decision is kept as written.
 
@@ -112,7 +116,7 @@ Two names are left open on purpose and are filled in by `/speckit-tasks` after p
 
 ```text
 # Database
-prisma/migrations/<timestamp>_client_text_checks/migration.sql   new   clients name/phone trim + not-empty checks (R9)
+prisma/migrations/<timestamp>_units_clients_checks/migration.sql   new   clients name/phone trim + not-empty checks; units price <= 10^11 (R9)
 
 # Server infrastructure (src/server)
 src/server/db.ts                          change  + isUniqueViolation(err, constraint) (R6)
@@ -210,11 +214,11 @@ tests/unit/features/units/units.schemas.test.ts        new
 tests/unit/features/clients/clients.schemas.test.ts    new
 tests/unit/architecture/conventions.test.ts            change  + "no dangerouslySetInnerHTML in src" (R10)
 tests/integration/support/session-users.ts             new     makeSessionUser(companyId, role) → SessionUser built on db-fixtures
-tests/integration/prisma/client-checks.test.ts         new     new DB checks
-tests/integration/features/units/units.service.test.ts       new
-tests/integration/features/clients/clients.service.test.ts   new
-tests/integration/features/units/units.routes.test.ts        new  (needs phase 2 session helper)
-tests/integration/features/clients/clients.routes.test.ts    new  (needs phase 2 session helper)
+tests/integration/prisma/units-clients-checks.test.ts         new     new DB checks
+tests/integration/features/units/server/units.service.test.ts       new
+tests/integration/features/clients/server/clients.service.test.ts   new
+tests/integration/features/units/server/units.routes.test.ts        new  (needs phase 2 session helper)
+tests/integration/features/clients/server/clients.routes.test.ts    new  (needs phase 2 session helper)
 
 # Docs
 README.md                                 change  Assumptions (from spec) + Technical decisions (R1, R2, R3, R6)
@@ -255,7 +259,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 
 | Rule | Proof | Kind |
 |---|---|---|
-| FR-001 units of own company only | `tests/integration/features/units/units.service.test.ts` › "tenant isolation › lists only the session company's units" | Auto |
+| FR-001 units of own company only | `tests/integration/features/units/server/units.service.test.ts` › "tenant isolation › lists only the session company's units" | Auto |
 | FR-002 filter status / price range (inclusive), sort price/area both ways, pages | `units.service.test.ts` › "list › filters by status", "list › price range includes both ends", "list › sorts by area desc", "list › sorts by price asc" | Auto |
 | FR-003 every invalid param → 400; default 20, max 50 | `tests/unit/features/units/units.schemas.test.ts` › "rejects <case>" (bad status, negative/decimal price, min > max, sort=rooms, order=up, page 0, pageSize 51, repeated key) and "applies defaults"; `units.routes.test.ts` › "returns 400 with fieldErrors for pageSize=51" | Auto + P2 |
 | FR-004 default order + stable pages | `units.service.test.ts` › "list › default order is project then number", "list › pages with equal prices never repeat or skip" (page 1 ∪ page 2 = all, disjoint), "list › page past the end is empty with total" | Auto |
@@ -269,7 +273,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 | R1 concurrent price edits (`UNIT_CHANGED`) | `units.service.test.ts` › "price lock › two concurrent price edits never share an oldPrice" (`Promise.all` of 2 `updateUnit` calls with different prices on one available unit: either one fails with `UNIT_CHANGED`, or both succeed and the second row's `oldPrice` = the first row's `newPrice`; the final price = the last successful call) | Auto |
 | FR-012 audit old/new price in the same step; none on create or same price | `units.service.test.ts` › "audit › one PRICE_CHANGED with oldPrice/newPrice/userId/entityId", "audit › refused change writes no row", "audit › create writes no row", "audit › same price writes no row" | Auto |
 | FR-013 status never settable | `tests/unit/features/units/units.schemas.test.ts` › "input strips status and companyId"; `units.service.test.ts` › "update › hand-sent status is ignored" | Auto |
-| FR-014 rep adds client owned by self | `tests/integration/features/clients/clients.service.test.ts` › "create › owner and company come from the session" (input with a foreign `salesRepId`/`companyId`) | Auto |
+| FR-014 rep adds client owned by self | `tests/integration/features/clients/server/clients.service.test.ts` › "create › owner and company come from the session" (input with a foreign `salesRepId`/`companyId`) | Auto |
 | FR-015 rep edits own clients only | `clients.service.test.ts` › "ownership › rep edits own client", "ownership › rep editing another rep's client → NOT_FOUND, unchanged" | Auto |
 | FR-016 rep sees own only | `clients.service.test.ts` › "ownership › rep list shows only own clients", "ownership › rep reading another rep's client → NOT_FOUND" | Auto |
 | FR-017 manager + accountant see all company clients read-only, owner shown | `clients.service.test.ts` › "read-only roles › manager lists all company clients with salesRep", "read-only roles › accountant lists all company clients" | Auto |
@@ -277,7 +281,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 | FR-019 notes as plain text | `clients.service.test.ts` › "notes › HTML-like notes returned exactly as typed"; `tests/unit/architecture/conventions.test.ts` › "never uses dangerouslySetInnerHTML"; quickstart §5 | Auto + Manual |
 | FR-020 duplicate phone allowed, nothing leaked | `clients.service.test.ts` › "create › duplicate phone across reps is accepted" | Auto |
 | FR-021 server-side checks on every request | all "role checks" and "ownership" tests call the service directly (no UI); `*.routes.test.ts` › "403/404 through HTTP" | Auto + P2 |
-| FR-022 other company → 404 for every read and edit | `units.service.test.ts` › "tenant isolation › getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT", "tenant isolation › updateUnit of company B → NOT_FOUND for every role, unchanged"; `clients.service.test.ts` › same two for clients, plus "tenant isolation › client list excludes company B for MANAGER, SALES, ACCOUNTANT" | Auto |
+| FR-022 other company → 404 for every read and edit | `units.service.test.ts` › "tenant isolation › getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT", "tenant isolation › updateUnit of company B → NOT_FOUND for every role, unchanged"; `clients.service.test.ts` › same two for clients, plus "tenant isolation › client list excludes company B for MANAGER, SALES, ACCOUNTANT"; `*.routes.test.ts` › "GET /api/{units\|clients}?companyId={company B id} returns only company A rows" (spec US6 scenario 4) | Auto + P2 |
 | FR-023 another rep's client → 404 | `clients.service.test.ts` › "ownership › rep reading another rep's client → NOT_FOUND" | Auto |
 | FR-024 wrong role → 403 | `units.service.test.ts` › "role checks › …"; `clients.service.test.ts` › "role checks › MANAGER cannot create/update", "role checks › ACCOUNTANT cannot create/update" | Auto |
 | FR-025 only reps write clients | same as FR-024 (clients) | Auto |
@@ -288,7 +292,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 | FR-030 hidden actions per role | quickstart §2 | Manual |
 | Money conversion exact, ≤ 2 decimals | `tests/unit/shared/lib/money.test.ts` › "parses 1500.5 to 150050", "rejects 3 decimals", "rejects negative / text / empty", "formats halalas as riyals" | Auto |
 | Query normalization | `tests/unit/shared/lib/search-params.test.ts` › "empty string → undefined", "repeated key → array", "same result for URLSearchParams and record" | Auto |
-| Client DB checks (R9) | `tests/integration/prisma/client-checks.test.ts` › "rejects empty or untrimmed name", "rejects empty or untrimmed phone" | Auto |
+| DB checks (R9) | `tests/integration/prisma/units-clients-checks.test.ts` › "rejects empty or untrimmed name", "rejects empty or untrimmed phone", "rejects price above 10^11 halalas", "accepts price of exactly 10^11 halalas" | Auto |
 | Phone format, notes length, field limits | `clients.schemas.test.ts` › "accepts +966 50-000-0000", "rejects letters", "rejects 6 and 21 chars", "notes over 2000 rejected", "empty notes → null"; `units.schemas.test.ts` › "rejects area 0 / 100001, rooms 51, price 0" | Auto |
 | Spec "done when": A cannot read/edit B units or clients; rep cannot read another rep's client; reserved unit price cannot change | FR-022, FR-023, FR-011 rows above | Auto |
 

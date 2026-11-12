@@ -1,6 +1,6 @@
 # Data Model: Units and Clients
 
-This phase uses the tables from phase 1 (`prisma/schema.prisma`, migrations `20261112121333_init_schema` and `20261112130237_append_only_guards`). It adds no table and no column. The only schema change is one migration with two check constraints on `clients` (research R9).
+This phase uses the tables from phase 1 (`prisma/schema.prisma`, migrations `20261112121333_init_schema` and `20261112130237_append_only_guards`). It adds no table and no column. The only schema change is one migration with two check constraints on `clients` and one price cap on `units` (research R9).
 
 ## Unit (`units`)
 
@@ -13,7 +13,7 @@ This phase uses the tables from phase 1 (`prisma/schema.prisma`, migrations `202
 | type | enum `UnitType` | APARTMENT, VILLA, TOWNHOUSE, DUPLEX | `z.enum` of the same 4 |
 | area | int | `> 0` | integer 1–100,000 (m²) |
 | rooms | int | `>= 0` | integer 0–50 |
-| price | bigint (halalas) | `> 0` | integer halalas 1–100,000,000,000 (≤ 1,000,000,000 SAR) |
+| price | bigint (halalas) | `> 0`; **new**: `<= 100000000000` | integer halalas 1–100,000,000,000 (≤ 1,000,000,000 SAR) |
 | status | enum `UnitStatus` | default AVAILABLE | **never in input**; read-only in DTO |
 
 **Input schema**: `unitInputSchema = unitSchema.pick({ projectName, number, type, area, rooms, price })`. It is used for both create (POST) and edit (PATCH, full object). Extra keys (`status`, `companyId`, `id`) are stripped.
@@ -92,7 +92,7 @@ type ClientDto = {
 type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 ```
 
-`price` is converted from `bigint` with `Number()` in the service mapper. This is safe because the database and the input both cap it at ≤ 10^11, which is below 2^53.
+`price` is converted from `bigint` with `Number()` in the service mapper. This is safe because the database (`units_price_max_check`) and the input schema both cap it at ≤ 10^11, which is below 2^53.
 
 ## List queries
 

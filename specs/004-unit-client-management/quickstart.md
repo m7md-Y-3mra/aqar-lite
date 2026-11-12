@@ -22,7 +22,7 @@ docker compose up -d db
 npm run test:integration
 ```
 
-**Expected**: everything passes. The integration run applies the new `client_text_checks` migration to `aqar_test` and runs the units and clients service and route tests. Rule-to-test mapping: [plan.md › Requirement → proof map](./plan.md#requirement--proof-map).
+**Expected**: everything passes. The integration run applies the new `units_clients_checks` migration to `aqar_test` and runs the units and clients service and route tests. Rule-to-test mapping: [plan.md › Requirement → proof map](./plan.md#requirement--proof-map).
 
 ## 2. Roles and hidden actions (FR-024, FR-025, FR-030)
 
@@ -55,8 +55,9 @@ fetch("/api/units", { method: "POST", headers: { "Content-Type": "application/js
 
 1. Filter to a price range with no units.
    **Expected**: the empty state.
-2. Stop the database (`docker compose stop db`) and reload `/units`.
-   **Expected**: the error state with retry.
+2. Open `/units`. In the browser dev tools (Network panel), block the request URL pattern `/api/units*`, then change a filter.
+   **Expected**: the error state with "إعادة المحاولة". Unblock the pattern and press it: the list loads.
+   (Do not stop the database for this check: `requireUser()` needs it too, so the whole page would fail instead of the list.)
 3. With slow network throttling, open `/units`.
    **Expected**: a skeleton, then rows.
 4. As the manager, submit `/units/new` with an empty project name, area 0 and price `10.555`.

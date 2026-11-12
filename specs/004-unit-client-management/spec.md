@@ -151,6 +151,8 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 - **Empty notes**: allowed. Long notes keep their line breaks when shown.
 - **Whitespace**: leading and trailing spaces in text fields are removed; a field that is only spaces counts as empty.
 - **Out-of-reach record**: a client or unit page opened by direct address for a record the user may not see (another company, another rep's client) shows "not found", never a partial page.
+- **Invalid request before lookup**: a request whose body or query is invalid is refused with a validation error (400) before any record is looked up, even when the record belongs to another company. The answer depends only on the request itself, so it reveals nothing about other companies' records.
+- **Two managers change one price at once**: the first change is saved. The second is refused with a clear "the unit was just changed, reload and try again" message, so no price change is ever based on a price the manager did not see. Each saved change has its own audit entry.
 - **Rounding of price input**: a price with more than 2 decimal places is refused, so no amount is silently changed.
 
 ## Requirements *(mandatory)*
@@ -189,7 +191,7 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 **Permissions and isolation**
 
 - **FR-021**: Every permission check MUST happen on the server for every request. Hiding a button is never the check.
-- **FR-022**: A unit or client of another company MUST return "not found" (404) for every read and every edit.
+- **FR-022**: A unit or client of another company MUST return "not found" (404) for every read and every valid edit request. An invalid request is refused (400) first, without any lookup (see Edge Cases).
 - **FR-023**: A client owned by another sales rep MUST return "not found" (404) to a sales rep, so its existence is not revealed.
 - **FR-024**: A user whose role is not allowed an action MUST be refused (403): a sales rep or accountant adding or editing a unit; a manager or accountant adding or editing a client.
 - **FR-025**: Only a sales rep MUST be able to add or edit clients. Managers and accountants have read-only access to all clients of their company.

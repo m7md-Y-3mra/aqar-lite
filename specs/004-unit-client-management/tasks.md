@@ -67,7 +67,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests first
 
-- [ ] T004 [P] Write `tests/integration/prisma/client-checks.test.ts`: "rejects empty or untrimmed name" and "rejects empty or untrimmed phone". Insert through `getDb().client.create` with `"  "`, `""` and `" x"`, and assert `expectDbError(…, { code: "23514", constraint: "clients_name_check" | "clients_phone_check" })` using `tests/integration/support/db-fixtures.ts`.
+- [ ] T004 [P] Write `tests/integration/prisma/units-clients-checks.test.ts`: "rejects empty or untrimmed name" and "rejects empty or untrimmed phone" (insert through `getDb().client.create` with `"  "`, `""` and `" x"`), "rejects price above 10^11 halalas" (`makeUnit` with `price: 100_000_000_001n`) and "accepts price of exactly 10^11 halalas". Assert `expectDbError(…, { code: "23514", constraint: "clients_name_check" | "clients_phone_check" | "units_price_max_check" })` using `tests/integration/support/db-fixtures.ts`.
 - [ ] T005 [P] Write `tests/unit/shared/lib/money.test.ts`. For `parseRiyals`:
   - `"1500"` → 150000, `"1500.5"` → 150050, `"1500.05"` → 150005, `"0.01"` → 1;
   - `"1500.555"`, `"-1"`, `"abc"`, `""`, `" "`, `"1e3"` → `null`.
@@ -81,9 +81,10 @@ description: "Task list for phase 3: units and clients"
 
 ### Implementation
 
-- [ ] T009 Create the migration with `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npx prisma migrate dev --create-only --name client_text_checks`. Write in `prisma/migrations/<timestamp>_client_text_checks/migration.sql`:
+- [ ] T009 Create the migration with `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npx prisma migrate dev --create-only --name units_clients_checks`. Write in `prisma/migrations/<timestamp>_units_clients_checks/migration.sql`:
   - `ALTER TABLE "clients" ADD CONSTRAINT "clients_name_check" CHECK ("name" = btrim("name") AND "name" <> '');`
-  - the same for `"phone"` as `clients_phone_check`.
+  - the same for `"phone"` as `clients_phone_check`;
+  - `ALTER TABLE "units" ADD CONSTRAINT "units_price_max_check" CHECK ("price" <= 100000000000);`
 
   Apply it. `schema.prisma` does not change. T004 must pass.
 - [ ] T010 [P] Add `UNIT_PRICE_LOCKED: 409` and `UNIT_CHANGED: 409` to `src/server/http/error-codes.ts`. Add their Arabic messages (exact text in contracts/units-api.md › New error codes) to `src/shared/lib/error-messages.ts`.
@@ -151,11 +152,11 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 1 ⚠️ (write first, see them fail)
 
-- [ ] T026 [US1] Write `tests/integration/features/units/units.service.test.ts` with these describe blocks, using `makeTwoCompanies` (T021) and `makeUnit`/`makeReservation`/`makeClient` (db-fixtures):
+- [ ] T026 [US1] Write `tests/integration/features/units/server/units.service.test.ts` with these describe blocks, using `makeTwoCompanies` (T021) and `makeUnit`/`makeReservation`/`makeClient` (db-fixtures):
   - **"list"**: "filters by status", "price range includes both ends", "sorts by area desc", "sorts by price asc", "default order is project then number", "pages with equal prices never repeat or skip" (5 units with the same price; page 1 + page 2 with pageSize 3 are disjoint and together equal all), "page past the end is empty with total".
   - **"expiry"**: "expired reservation lists as AVAILABLE on next read" (unit RESERVED + reservation `expiresAt` in the past, set with `getDb().reservation.update`), "active reservation stays RESERVED", "SOLD with expired reservation stays SOLD", "getUnit releases too".
   - **"tenant isolation"**: "lists only the session company's units".
-- [ ] T027 [P] [US1] Write `tests/integration/features/units/units.routes.test.ts` › "GET /api/units returns 400 with fieldErrors for pageSize=51" and "… for minPrice > maxPrice". It calls the exported `GET` from `src/app/api/units/route.ts` with a `Request` that carries the session cookie from phase 2's test helper (T002), and asserts the `{ error: { code: "VALIDATION_ERROR", fieldErrors } }` shape.
+- [ ] T027 [P] [US1] Write `tests/integration/features/units/server/units.routes.test.ts` › "GET /api/units returns 400 with fieldErrors for pageSize=51" and "… for minPrice > maxPrice". It calls the exported `GET` from `src/app/api/units/route.ts` with a `Request` that carries the session cookie from phase 2's test helper (T002), and asserts the `{ error: { code: "VALIDATION_ERROR", fieldErrors } }` shape.
 
 ### Implementation for User Story 1
 
@@ -219,11 +220,11 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T040 [US2] Add to `tests/integration/features/units/units.service.test.ts`:
+- [ ] T040 [US2] Add to `tests/integration/features/units/server/units.service.test.ts`:
   - **"create"**: "manager creates AVAILABLE unit", "ignores hand-sent status and companyId" (pass `unitInputSchema.parse({ ...valid, status: "SOLD", companyId: B })`), "duplicate number gives fieldErrors.number" (expect `AppError` `VALIDATION_ERROR` with `fieldErrors.number[0] === UNIT_NUMBER_TAKEN`), "same number in another company is allowed".
   - **"role checks"**: "SALES cannot create", "ACCOUNTANT cannot create" (`FORBIDDEN`, no row added).
   - **"audit"**: "create writes no row" (count of `audit_logs` rows for the company is unchanged).
-- [ ] T041 [P] [US2] Add to `tests/integration/features/units/units.routes.test.ts`: "POST /api/units with a valid body as ACCOUNTANT returns 403" and "POST with a foreign Origin returns 403 INVALID_ORIGIN".
+- [ ] T041 [P] [US2] Add to `tests/integration/features/units/server/units.routes.test.ts`: "POST /api/units with a valid body as ACCOUNTANT returns 403" and "POST with a foreign Origin returns 403 INVALID_ORIGIN".
 
 ### Implementation for User Story 2
 
@@ -262,7 +263,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T049 [US3] Add to `tests/integration/features/units/units.service.test.ts`:
+- [ ] T049 [US3] Add to `tests/integration/features/units/server/units.service.test.ts`:
   - **"price lock"**:
     - "RESERVED unit price change → UNIT_PRICE_LOCKED, price unchanged";
     - "SOLD unit → UNIT_PRICE_LOCKED";
@@ -273,7 +274,7 @@ description: "Task list for phase 3: units and clients"
   - **"audit"**: "one PRICE_CHANGED with oldPrice/newPrice/userId/entityId", "refused change writes no row", "same price writes no row".
   - **"update"**: "SOLD unit: area change saved, no audit", "hand-sent status is ignored", "renaming to a taken number gives fieldErrors.number".
   - **"role checks"**: "SALES cannot update", "ACCOUNTANT cannot update" (`FORBIDDEN`, record unchanged).
-- [ ] T050 [P] [US3] Add to `tests/integration/features/units/units.routes.test.ts`: "PATCH reserved unit with a new price returns 409 UNIT_PRICE_LOCKED" and "PATCH with a valid body as SALES returns 403".
+- [ ] T050 [P] [US3] Add to `tests/integration/features/units/server/units.routes.test.ts`: "PATCH reserved unit with a new price returns 409 UNIT_PRICE_LOCKED" and "PATCH with a valid body as SALES returns 403".
 
 ### Implementation for User Story 3
 
@@ -325,12 +326,12 @@ description: "Task list for phase 3: units and clients"
 
   Create `src/features/clients/clients.types.ts` (`ClientDto`, `ClientInput`, `ClientListQuery`, `ClientPage`) and `src/features/clients/clients.keys.ts` (`clientKeys.all`, `list`, `detail`).
 - [ ] T058 [P] [US4] Write `tests/unit/features/clients/clients.schemas.test.ts`: "accepts +966 50-000-0000", "accepts 0500000000", "rejects letters", "rejects 6 and 21 chars", "notes over 2000 rejected", "empty notes → null", "keeps line breaks in notes", "input strips salesRepId and companyId", "rejects pageSize 51", "rejects page 0".
-- [ ] T059 [US4] Write `tests/integration/features/clients/clients.service.test.ts`, using `makeTwoCompanies`:
+- [ ] T059 [US4] Write `tests/integration/features/clients/server/clients.service.test.ts`, using `makeTwoCompanies`:
   - **"create"**: "owner and company come from the session" (input parsed with a foreign `salesRepId`/`companyId`), "duplicate phone across reps is accepted".
   - **"ownership"**: "rep list shows only own clients", "rep reading another rep's client → NOT_FOUND", "rep edits own client", "rep editing another rep's client → NOT_FOUND, unchanged".
   - **"list"**: "ordered by name then id, pageSize respected".
   - **"notes"**: "HTML-like notes returned exactly as typed" (notes `"<b>مهم</b>\n<script>alert(1)</script>"`).
-- [ ] T060 [P] [US4] Write `tests/integration/features/clients/clients.routes.test.ts`: "GET /api/clients/{other rep's id} as SALES returns 404" and "POST /api/clients with a valid body returns 201 with salesRep = session user".
+- [ ] T060 [P] [US4] Write `tests/integration/features/clients/server/clients.routes.test.ts`: "GET /api/clients/{other rep's id} as SALES returns 404" and "POST /api/clients with a valid body returns 201 with salesRep = session user".
 
 ### Implementation for User Story 4
 
@@ -383,10 +384,10 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T072 [US5] Add to `tests/integration/features/clients/clients.service.test.ts`:
+- [ ] T072 [US5] Add to `tests/integration/features/clients/server/clients.service.test.ts`:
   - **"read-only roles"**: "manager lists all company clients with salesRep", "accountant lists all company clients", "manager and accountant read any company client".
   - **"role checks"**: "MANAGER cannot create/update", "ACCOUNTANT cannot create/update" (`FORBIDDEN`; the client is unchanged and no row is added).
-- [ ] T073 [P] [US5] Add to `tests/integration/features/clients/clients.routes.test.ts`: "PATCH /api/clients/{id} with a valid body as ACCOUNTANT returns 403".
+- [ ] T073 [P] [US5] Add to `tests/integration/features/clients/server/clients.routes.test.ts`: "PATCH /api/clients/{id} with a valid body as ACCOUNTANT returns 403".
 
 ### Implementation for User Story 5
 
@@ -407,18 +408,19 @@ description: "Task list for phase 3: units and clients"
 
 These tests prove behaviour built in US1–US5. They should pass once written; if any fails, fix the service, never the test.
 
-- [ ] T076 [US6] Add to "tenant isolation" in `tests/integration/features/units/units.service.test.ts`:
+- [ ] T076 [US6] Add to "tenant isolation" in `tests/integration/features/units/server/units.service.test.ts`:
   - "getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT";
   - "updateUnit of company B → NOT_FOUND for every role, unchanged" (compare the full row before and after; no audit row in either company);
   - "list filters cannot reach company B" (a `status`/price range matching only B's unit returns `total: 0`).
-- [ ] T077 [US6] Add to "tenant isolation" in `tests/integration/features/clients/clients.service.test.ts`:
+- [ ] T077 [US6] Add to "tenant isolation" in `tests/integration/features/clients/server/clients.service.test.ts`:
   - "getClient of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT";
   - "updateClient of company B → NOT_FOUND for every role, unchanged";
   - "client list excludes company B for MANAGER, SALES, ACCOUNTANT".
-- [ ] T078 [P] [US6] Add to `tests/integration/features/units/units.routes.test.ts` and `tests/integration/features/clients/clients.routes.test.ts`:
+- [ ] T078 [P] [US6] Add to `tests/integration/features/units/server/units.routes.test.ts` and `tests/integration/features/clients/server/clients.routes.test.ts`:
   - "GET /api/{units|clients}/{company B id} returns 404";
   - "GET /api/{units|clients}/not-a-uuid returns 404";
-  - "PATCH company B record with a valid body returns 404 for MANAGER (units) and SALES (clients)".
+  - "PATCH company B record with a valid body returns 404 for MANAGER (units) and SALES (clients)";
+  - "GET /api/{units|clients}?companyId={company B id} returns only company A rows" (the unknown param is ignored; `total` equals the company A count).
 
 **Checkpoint**: All "Done when" proofs exist and pass.
 
@@ -466,9 +468,9 @@ These tests prove behaviour built in US1–US5. They should pass once written; i
 
 ### Shared files (never edit in parallel)
 
-- `tests/integration/features/units/units.service.test.ts`: T026 → T040 → T049 → T076
-- `tests/integration/features/units/units.routes.test.ts`: T027 → T041 → T050 → T078
-- `tests/integration/features/clients/clients.service.test.ts`: T059 → T072 → T077
+- `tests/integration/features/units/server/units.service.test.ts`: T026 → T040 → T049 → T076
+- `tests/integration/features/units/server/units.routes.test.ts`: T027 → T041 → T050 → T078
+- `tests/integration/features/clients/server/clients.service.test.ts`: T059 → T072 → T077
 - `src/features/units/server/units.{repository,service,routes}.ts`: US1 → US2 → US3
 - `src/features/units/client/units-page/units-page.tsx`: T037 → T048 → T056
 - `src/features/units/client/unit-form/*`: T045/T046 → T054
@@ -478,7 +480,7 @@ These tests prove behaviour built in US1–US5. They should pass once written; i
 ### Foundational
 
 ```text
-Together: T004 client-checks test, T005 money test, T006 search-params test, T007 form-errors test, T008 conventions test
+Together: T004 DB checks test, T005 money test, T006 search-params test, T007 form-errors test, T008 conventions test
 Then together: T010 error codes, T011 isUniqueViolation, T012 money, T013 search-params, T014 pagination, T017 UI primitives,
                T018 money-input, T019 pagination-nav, T020 state components, T021 session-users, T022 units schemas, T024 types/keys, T025 labels
 ```

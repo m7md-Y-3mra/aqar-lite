@@ -162,18 +162,20 @@ If phase 2 already added `button`, `input` or `label`, they are reused.
 
 **Alternatives considered**: `fetchQuery` in a `try` block. It works, but it departs from the agreed wording.
 
-## R9. Client text checks in the database (schema change)
+## R9. Unit and client checks in the database (schema change)
 
-**Decision**: Add one migration, `client_text_checks`, with two checks:
+**Decision**: Add one migration, `units_clients_checks`, with three checks:
 - `clients_name_check`: `name = btrim(name) AND name <> ''`
 - `clients_phone_check`: `phone = btrim(phone) AND phone <> ''`
+- `units_price_max_check`: `price <= 100000000000` (1,000,000,000 SAR in halalas)
 
 It is created with `prisma migrate dev --create-only` (`DATABASE_URL` must be set) and the SQL is edited before applying. There is no change to `schema.prisma`.
 
 **Rationale**:
 - Constitution V: integrity rules live in the database too.
 - Phase 1 added the same trim checks to `units.project_name` and `units.number`, but not to clients.
-- Zod trims first, so valid input always passes. All seed phones and names already pass.
+- The price cap makes `Number(price)` in the DTO mapper safe at the database level, not only through the input schema (10^11 < 2^53). Phase 5 also divides this price, so it must never exceed what a JS `number` holds exactly.
+- Zod trims first and has the same cap, so valid input always passes. All seed phones, names and prices already pass.
 
 **Alternatives considered**:
 - No migration. This would leave the only text rule of this phase enforced only in code.
