@@ -106,6 +106,10 @@ specs/004-unit-client-management/
 
 Legend: **new**, **change**. **P2?** = expected from phase 2; create it here only if phase 2 did not.
 
+Two names are left open on purpose and are filled in by `/speckit-tasks` after phase 2 lands:
+- `<timestamp>`: set by `prisma migrate dev --create-only`.
+- `<phase 2 nav component>`: phase 2 names that file.
+
 ```text
 # Database
 prisma/migrations/<timestamp>_client_text_checks/migration.sql   new   clients name/phone trim + not-empty checks (R9)
@@ -262,6 +266,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 | FR-009 duplicate project + number → field error; other company OK | `units.service.test.ts` › "create › duplicate number gives fieldErrors.number", "create › same number in another company is allowed", "update › renaming to a taken number gives fieldErrors.number" | Auto |
 | FR-010 only manager edits; non-price fields any status | `units.service.test.ts` › "role checks › SALES cannot update", "role checks › ACCOUNTANT cannot update", "update › SOLD unit: area change saved, no audit" | Auto |
 | FR-011 price only while AVAILABLE; same price never refused | `units.service.test.ts` › "price lock › RESERVED unit price change → UNIT_PRICE_LOCKED, price unchanged", "price lock › SOLD unit → UNIT_PRICE_LOCKED", "price lock › expired reservation → change succeeds", "price lock › reserved after form opened → UNIT_PRICE_LOCKED" (status flipped between `getUnit` and `updateUnit`), "price lock › same price on RESERVED unit is saved" | Auto |
+| R1 concurrent price edits (`UNIT_CHANGED`) | `units.service.test.ts` › "price lock › two concurrent price edits never share an oldPrice" (`Promise.all` of 2 `updateUnit` calls with different prices on one available unit: either one fails with `UNIT_CHANGED`, or both succeed and the second row's `oldPrice` = the first row's `newPrice`; the final price = the last successful call) | Auto |
 | FR-012 audit old/new price in the same step; none on create or same price | `units.service.test.ts` › "audit › one PRICE_CHANGED with oldPrice/newPrice/userId/entityId", "audit › refused change writes no row", "audit › create writes no row", "audit › same price writes no row" | Auto |
 | FR-013 status never settable | `tests/unit/features/units/units.schemas.test.ts` › "input strips status and companyId"; `units.service.test.ts` › "update › hand-sent status is ignored" | Auto |
 | FR-014 rep adds client owned by self | `tests/integration/features/clients/clients.service.test.ts` › "create › owner and company come from the session" (input with a foreign `salesRepId`/`companyId`) | Auto |
@@ -272,7 +277,7 @@ README.md                                 change  Assumptions (from spec) + Tech
 | FR-019 notes as plain text | `clients.service.test.ts` › "notes › HTML-like notes returned exactly as typed"; `tests/unit/architecture/conventions.test.ts` › "never uses dangerouslySetInnerHTML"; quickstart §5 | Auto + Manual |
 | FR-020 duplicate phone allowed, nothing leaked | `clients.service.test.ts` › "create › duplicate phone across reps is accepted" | Auto |
 | FR-021 server-side checks on every request | all "role checks" and "ownership" tests call the service directly (no UI); `*.routes.test.ts` › "403/404 through HTTP" | Auto + P2 |
-| FR-022 other company → 404 for every read and edit | `units.service.test.ts` › "tenant isolation › getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT", "tenant isolation › updateUnit of company B → NOT_FOUND for every role, unchanged"; `clients.service.test.ts` › same two for clients | Auto |
+| FR-022 other company → 404 for every read and edit | `units.service.test.ts` › "tenant isolation › getUnit of company B → NOT_FOUND for MANAGER, SALES, ACCOUNTANT", "tenant isolation › updateUnit of company B → NOT_FOUND for every role, unchanged"; `clients.service.test.ts` › same two for clients, plus "tenant isolation › client list excludes company B for MANAGER, SALES, ACCOUNTANT" | Auto |
 | FR-023 another rep's client → 404 | `clients.service.test.ts` › "ownership › rep reading another rep's client → NOT_FOUND" | Auto |
 | FR-024 wrong role → 403 | `units.service.test.ts` › "role checks › …"; `clients.service.test.ts` › "role checks › MANAGER cannot create/update", "role checks › ACCOUNTANT cannot create/update" | Auto |
 | FR-025 only reps write clients | same as FR-024 (clients) | Auto |

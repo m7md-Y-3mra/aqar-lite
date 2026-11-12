@@ -4,6 +4,7 @@ All routes:
 - Need a session (phase 2 wrapper). No session → `401 UNAUTHORIZED`.
 - Return `{ data }` or `{ error: { code, message, fieldErrors? } }`. Messages are Arabic.
 - Mutating routes also need `Origin` = `APP_ORIGIN`, otherwise `403 INVALID_ORIGIN`.
+- Check order ([research R3](../research.md#full-check-order-in-a-route)): `id` not a UUID → 404; invalid body or query → 400; record not in the company → 404; role not allowed → 403. So a wrong-role request with an invalid body gets 400.
 - Money is integer halalas. DTO shapes are in [data-model.md](../data-model.md#dtos-json-safe-same-from-the-service-and-the-api).
 
 ## GET /api/units

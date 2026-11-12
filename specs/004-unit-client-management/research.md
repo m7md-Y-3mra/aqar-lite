@@ -8,7 +8,7 @@ Each entry: **Decision**, **Rationale**, **Alternatives considered**. No open "N
 
 1. `releaseExpired(companyId, tx)`.
 2. Read the unit scoped by `companyId` (`null` → `NOT_FOUND`), then check the role (`MANAGER`, else `FORBIDDEN`).
-3. If the new price equals the stored price, update only the other fields, with no status condition (FR-011: an edit that keeps the price is never refused because of the status).
+3. If the new price equals the stored price (compare `BigInt(input.price) === unit.price`, because the stored value is a `bigint` and `===` against a `number` is always false), update only the other fields, with no status condition (FR-011: an edit that keeps the price is never refused because of the status).
 4. Otherwise run one conditional update: `WHERE id = $id AND company_id = $companyId AND status = 'AVAILABLE' AND price = $oldPrice`.
    - 1 row → write the `PRICE_CHANGED` audit row in the same transaction.
    - 0 rows → re-read the unit:
@@ -44,6 +44,8 @@ The service calls it:
 
 Phase 4 will call it before reserving, through `units/server/index.ts`.
 
+**Check during implementation**: `@prisma/adapter-pg` may bind `${companyId}` as `text`, which fails against the `uuid` column (`operator does not exist: uuid = text`). If it does, write `${companyId}::uuid`. The expiry tests in the proof map prove which form works.
+
 **Rationale**:
 - One statement means no window between finding and fixing a unit.
 - The database clock (`now()`) is the only clock, so app-server time drift cannot matter.
@@ -69,6 +71,15 @@ Phase 4 will call it before reserving, through `units/server/index.ts`.
 
 **Alternatives considered**: Checking the role first. It is simpler, but it returns 403 for a company-B unit to an accountant, which breaks the spec as written.
 
+### Full check order in a route
+
+1. Path id is not a UUID → 404.
+2. Body or query fails the schema → 400 (the route parses before it calls the service, per AGENTS §1).
+3. Record not found in the session company, or not owned for a sales rep's clients → 404.
+4. Role not allowed → 403.
+
+As a result, a wrong-role request with an invalid body gets 400, not 403. This leaks nothing, because step 2 does not depend on any record. Tests for 403 and 404 send valid bodies.
+
 ## R4. One parser for query parameters
 
 **Decision**: `src/shared/lib/search-params.ts` exports `toQueryInput(source)`. It accepts either `URLSearchParams` (API) or Next's resolved `searchParams` record (`page.tsx`). It returns a plain object:
@@ -76,6 +87,8 @@ Phase 4 will call it before reserving, through `units/server/index.ts`.
 - A repeated key becomes a `string[]`. The schema expects a string, so the result is a 400.
 
 The same feature schema (`unitListQuerySchema`, `clientListQuerySchema`) then parses it.
+
+- Numeric params (`page`, `pageSize`, `minPrice`, `maxPrice`) must match `^\d+$` before they are converted to a number. Plain `z.coerce.number()` would accept `" "` (as 0), `"0x10"` and `"1e3"`, which breaks "every invalid value returns 400".
 
 - `z.object` strips unknown keys, so unknown parameters are ignored, as the spec's edge cases require.
 - In `page.tsx`, a failed parse skips the prefetch. It does not throw.

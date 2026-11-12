@@ -37,10 +37,10 @@ Start the app (`docker compose up`), then log in as each user of company A:
 Then check the server refuses the same actions without the UI. Use the browser dev tools with an accountant session:
 
 ```js
-fetch("/api/units", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(r => r.status)
+fetch("/api/units", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectName: "اختبار", number: "T-1", type: "APARTMENT", area: 100, rooms: 2, price: 50000000 }) }).then(r => r.status)
 ```
 
-**Expected**: `403`.
+**Expected**: `403`. The body must be valid: an invalid body gets 400 first (research R3).
 
 ## 3. Filters, sort, pages in the URL (FR-002–FR-005)
 

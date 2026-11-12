@@ -2,6 +2,8 @@
 
 The common rules are the same as in [units-api.md](./units-api.md): session required, `{ data }` / `{ error }` shape, `Origin` check on mutations, Arabic messages.
 
+Check order: `id` not a UUID → 404; invalid body or query → 400; record not found in the company, or another rep's client for a sales rep → 404; role not allowed → 403.
+
 ## GET /api/clients
 
 Query: `page`, `pageSize` (see data-model.md › List queries). Order: name ascending, then id.
