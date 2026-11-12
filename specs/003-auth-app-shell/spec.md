@@ -18,6 +18,7 @@
 
 - Q: How long does the login lock last, and do refused attempts during the lock extend it? → A: Rolling 15-minute window over wrong-credential failures only. Every failed login is audited with a reason: `invalid_credentials` (wrong email or password) or `locked` (refused because the email is locked). Only `invalid_credentials` rows count; `locked` rows never extend the lock. While locked, the submitted password is not verified, but the response is the same generic message with a similar response time. A test proves a user who retries with the correct password while locked can log in once the window passes.
 - Q: Add a per-IP login limit as well as the per-email lock? → A: No, per-email lock only. README "Security" states that it does not stop password spraying across many accounts and lets anyone lock a known user out for 15 minutes. README "Not done" lists a per-IP limit behind a trusted proxy (IP only from that proxy's header) or a CAPTCHA after repeated failures, and explains why not now: under `docker compose` with no proxy the app sees the Docker gateway address for every user, so a per-IP limit would block everyone or trust a spoofable header.
+- Q: Which navigation items does each role see (docs/phases.md clarify focus for this phase)? → A: Keep the FR-024 map: manager sees all sections and the audit log; sales rep sees units, clients, reservations and contracts; accountant sees contracts only (payments live on the contract page). Whether the accountant may also view units or clients read-only is decided in the phase 3 clarify, which asks that question; the map is updated then. In this phase only Home exists, so nothing visible changes. Decided by default on 2026-11-12 while resolving the `/speckit.analyze` findings.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -92,7 +93,7 @@ A visitor who is not logged in, whose session expired, or who sends a made-up to
 **Acceptance Scenarios**:
 
 1. **Given** no session cookie, **When** the visitor opens the home page or any other app page, **Then** they are sent to the login page.
-2. **Given** no session cookie, a random token, or a token whose session expired more than 7 days after login, **When** a protected API route is called, **Then** the response is 401 with the generic message "يجب تسجيل الدخول أولاً" and no data.
+2. **Given** no session cookie, a random token, or a token of an expired session (older than 7 days), **When** a protected API route is called, **Then** the response is 401 with the generic message "يجب تسجيل الدخول أولاً" and no data.
 3. **Given** a session older than 7 days, **When** it is used, **Then** it is treated as no session, even if the browser still sends the cookie.
 4. **Given** the login page, **When** a visitor with no session opens it, **Then** it shows the login form (it is the only page reachable without a session).
 5. **Given** any page, **When** a visitor looks for a sign-up, "forgot password" or user-management link, **Then** none exists.
@@ -246,7 +247,7 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 - **SC-004**: 100% of mutating requests with a foreign or missing origin are refused without changing any data; 100% of the same requests from the system's own origin are accepted.
 - **SC-005**: A wrong email and a wrong password give identical messages and statuses in 100% of attempts, and over 20 attempts of each their average response times differ by less than 20% (manual check; not an automated test, to avoid flaky timing in CI).
 - **SC-006**: 100% of failed logins (wrong email, wrong password, locked) produce exactly one failed-login audit row, and 0 log lines or audit rows contain a password or a raw token.
-- **SC-007**: 0 app pages other than the login page render content without a valid session, and 0 API routes other than login return data without one.
+- **SC-007**: 0 app pages other than the login page render content without a valid session, and 0 API routes other than login and logout return data without one; logout returns only `{ ok: true }`.
 - **SC-008**: At 375 px and 1280 px widths, every page of this phase has no horizontal scroll, is right-to-left, and shows each role only its allowed navigation items.
 
 ## Assumptions
@@ -257,7 +258,7 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 - **Session lifetime**: fixed 7 days from login, no sliding renewal and no "remember me" choice. Sessions are not ended when a password changes, because passwords cannot change in this system.
 - **Supported address**: the system is reached at the configured origin (`http://localhost:3000` in the default compose setup). Browsers treat `localhost` as a secure context, so the secure-only cookie works there over plain HTTP. Opening it through another host name (such as `127.0.0.1`) is not supported, because the origin check compares with the one configured origin. The README states this.
 - **Missing `Origin`**: refused for mutating requests. Every current browser sends `Origin` on POST, PUT, PATCH and DELETE from a page, so real users are not affected.
-- **Navigation map**: the role map in FR-024 follows the brief's role table: the manager sees everything in the company and the audit log; the sales rep works with units, own clients, own reservations and own draft contracts; the accountant works with contracts and payments (payments live inside the contract page). Later phases may adjust it and must keep server checks either way.
+- **Navigation map** (see Clarifications): the role map in FR-024 follows the brief's role table: the manager sees everything in the company and the audit log; the sales rep works with units, own clients, own reservations and own draft contracts; the accountant works with contracts and payments (payments live inside the contract page). Later phases may adjust it and must keep server checks either way.
 - **Expired session cleanup**: expired sessions are refused on use; deleting old expired rows in the background is not needed (no scheduled jobs in this system).
 - **Failed-login reason**: the audit row records `invalid_credentials` or `locked`. Only `invalid_credentials` counts toward the lock; `locked` rows exist so every failed login is audited (brief section 4) and so a reviewer can see attacks during a lock.
 - **Home page**: a welcome page only, not a dashboard (out of scope in the brief).
