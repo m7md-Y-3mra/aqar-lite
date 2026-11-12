@@ -3,7 +3,8 @@ import "server-only";
 import type { LoginInput } from "@/features/auth/auth.types";
 import { countRecentLoginFailures, insertAuditLog } from "@/server/audit/audit.repository";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/server/auth/password";
-import { createSession } from "@/server/auth/session.repository";
+import { createSession, deleteSession } from "@/server/auth/session.repository";
+import { toShellUser, type SessionUser } from "@/server/auth/session.service";
 import {
   generateSessionToken,
   hashSessionToken,
@@ -20,6 +21,14 @@ const LOGIN_FAILURE_REASON = {
   invalidCredentials: "invalid_credentials",
   locked: "locked",
 } as const;
+
+export async function logout(token: string | null): Promise<void> {
+  if (token) await deleteSession(hashSessionToken(token));
+}
+
+export function me(user: SessionUser): ShellUser {
+  return toShellUser(user);
+}
 
 type LoginResult = { ok: false } | { ok: true; token: string; user: ShellUser };
 
