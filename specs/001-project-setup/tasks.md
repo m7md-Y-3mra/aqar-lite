@@ -326,7 +326,8 @@ US1 → US2 (gates) → US3 (layer rules) → US4 (env refusal) → US5 (CI) →
 
 ## Implementation checkpoint
 
-- T001–T029 implemented. `npm run lint` passes with one base PostCSS export-style warning; `npm run typecheck` passes; `npm run test` passes (one security-header test). Prisma client generation and empty seed execution pass.
-- Production Docker image built successfully. Image environment inspection confirms no `DATABASE_URL`. Initial cold build exceeded ten minutes while pulling the base image/installing dependencies; SC-001 is not demonstrated.
-- **T030 blocked**: `docker compose up -d --wait` cannot bind host port 5432. `ss` shows a pre-existing listener on localhost:5432; no existing database/service was stopped. The new Compose containers exist but are not running.
-- Runtime startup, second start, PGDATA, browser/mobile checks and production config loading after pruning remain unverified. T030 and all subsequent tasks stay unchecked; do not advance until the startup checkpoint passes.
+- T001–T029 implemented by Codex; reviewed and fixed (database on `127.0.0.1:${DB_HOST_PORT:-5433}`, OpenSSL in the image, direct `next`/`prisma` exec, tsconfig values Next requires, tooling ignores, `readJson`, one env reason per variable).
+- T030–T050 done. US1 validated on the repo checkout: `docker compose up` ready, `lang="ar" dir="rtl"`, 5 security headers, no `x-powered-by`, no `DATABASE_URL` in the image, `PGDATA=/var/lib/postgresql/18/docker`, clean restart, 375 px layout without horizontal scroll.
+- T045: `next start` refuses a missing `APP_ORIGIN` (exit 1). The container check of the one-reason-per-variable message waits for an image rebuild (see T051).
+- **T051 partial**: on a clean clone, `npm ci`, `db:generate`, lint, typecheck, 40 unit tests, 2 integration tests on `aqar_test` and `next build` pass. The Docker image build failed because containers on this machine cannot resolve DNS (`EAI_AGAIN` for npm and Google Fonts, even with `--dns 1.1.1.1`); the same build passed earlier the same day. Re-run once Docker networking works.
+- **T052 open**: the built-in `/security-review` needs a git remote (`origin/HEAD`). A manual review of the branch found one issue (database published on all interfaces), now fixed. Run the built-in review after the branch is pushed.
