@@ -40,7 +40,19 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Source: `.specify/memory/constitution.md`. Mark each principle PASS, or write
+"Exception" and justify it in Complexity Tracking.
+
+| # | Principle | Status | Evidence / Notes |
+|---|-----------|--------|------------------|
+| I | Tenant Isolation (NON-NEGOTIABLE) | [PASS / Exception] | [companyId from session; repo filters; 404 cross-company; integration test] |
+| II | Server-Side Authorization | [PASS / Exception] | [role + ownership checked in service; allowlist input schemas] |
+| III | Financial Accuracy | [PASS / Exception] | [integer halalas; sums exact; Asia/Riyadh; derived status; unit tests] |
+| IV | Atomic and Concurrency-Safe Operations | [PASS / Exception] | [one transaction; conditional update; idempotency; allowed transitions] |
+| V | Database-Enforced Integrity | [PASS / Exception] | [migrations; FK/unique/check; triggers on payments + audit log] |
+| VI | Layered Feature Architecture | [PASS / Exception] | [route → service → repository; one-way feature deps; strict TS, no any] |
+| VII | Security by Default | [PASS / Exception] | [Zod on every input; generic errors; no secrets in logs; audit rows] |
+| VIII | Scope Discipline and Simplicity | [PASS / Exception] | [in-scope only; new dependencies justified; assumptions recorded] |
 
 ## Project Structure
 

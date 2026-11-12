@@ -1,50 +1,139 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: template (unratified) → 1.0.0 (initial ratification)
+- Modified principles: none (first version; all placeholders replaced)
+- Added principles:
+  I. Tenant Isolation (NON-NEGOTIABLE)
+  II. Server-Side Authorization
+  III. Financial Accuracy
+  IV. Atomic and Concurrency-Safe Operations
+  V. Database-Enforced Integrity
+  VI. Layered Feature Architecture
+  VII. Security by Default
+  VIII. Scope Discipline and Simplicity
+- Added sections: Technical Constraints, Development Workflow, Governance
+- Removed sections: none
+- Templates and guidance:
+  ✅ .specify/templates/plan-template.md — Constitution Check now lists principles I–VIII as gates
+  ✅ .specify/templates/tasks-template.md — tests are required where the constitution or
+     AGENTS.md §8 requires them (no longer "OPTIONAL")
+  ✅ .specify/templates/spec-template.md — no principle references; no change needed
+  ✅ .specify/templates/checklist-template.md — no principle references; no change needed
+  ✅ .claude/skills/speckit-*/SKILL.md — reference .specify/memory/constitution.md generically;
+     no change needed
+  N/A .specify/templates/commands/ — directory does not exist
+  ✅ AGENTS.md — checked; agrees with every principle (it is stricter in places, e.g. no
+     Server Actions). No edit made.
+  ⚠ README.md — does not exist yet. Principle VIII requires an "Assumptions" section; create it
+     in a later phase.
+- Deferred TODOs: none
+-->
+
+# Aqar Lite Constitution
+
+<!--
+Non-negotiable principles for every spec, plan and task. /speckit.plan and /speckit.analyze check against them.
+Each rule must be checkable. The "how" details live in AGENTS.md; this file says what must always be true.
+Order of authority: docs/brief.md > this constitution > AGENTS.md > spec/plan/tasks.
+-->
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Tenant Isolation (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- A user can never read or change data of another company, through any page, API route or query parameter.
+- The company and the user are taken from the server session only, never from the request.
+- Every data access function requires `companyId` and filters by it.
+- A record from another company returns 404.
+- Every feature that reads or writes tenant data has an integration test that proves cross-company access is refused.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale:** the brief says no company may see another company's data under any condition.
+One leak fails the test.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Server-Side Authorization
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Every API route and every service function checks the role AND the ownership before it acts.
+- The UI may hide actions, but hiding is never the check.
+- Input schemas list the allowed fields (allowlist). A user cannot change a field he is not allowed to change, even if he sends it by hand.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale:** the attacker is a logged-in user; permissions are enforced on every request.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Financial Accuracy
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- Money is integer halalas everywhere: database, code and JSON. No floating point.
+- The down payment plus all installments equal the final price exactly.
+- Dates for due dates and "overdue" use the `Asia/Riyadh` time zone.
+- Derived states (installment status, remaining amount) are computed from stored facts, never stored separately.
+- Schedule generation and payment allocation have unit tests for edge cases (31 January, rounding, partial and multi-installment payments).
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Rationale:** financial accuracy is judged as part of the work, not as an extra.
+
+### IV. Atomic and Concurrency-Safe Operations
+
+- Contract approval and payment recording each run in one database transaction.
+- Two concurrent reservations of one unit: exactly one succeeds; the other gets a clear 409 message. A test proves it with real parallel requests.
+- A repeated payment request with the same idempotency key never creates a second payment.
+- Unit status changes only through the allowed transitions: available → reserved → sold, and reserved → available on expiry.
+
+**Rationale:** the brief tests real concurrent requests and network retries.
+
+### V. Database-Enforced Integrity
+
+- Every schema change is a migration. Applied migrations are never edited.
+- Integrity rules live in the database too: foreign keys, unique, check constraints.
+- Payments and audit log rows can never be updated or deleted (enforced by database triggers).
+
+**Rationale:** code can have bugs; the database is the last line of defense.
+
+### VI. Layered Feature Architecture
+
+- Request flow is route → service → repository. Business rules live only in services and pure `domain/` functions, never in React components or route handlers.
+- Only repositories touch the ORM. Services own transactions.
+- Features depend in one direction only (payments → contracts → reservations → units, clients), through each feature's public `server/index.ts`. No cycles.
+- TypeScript strict mode, no `any`.
+
+**Rationale:** the brief requires separated layers, and the code must be easy for a colleague to continue.
+
+### VII. Security by Default
+
+- Passwords: Argon2id. Sessions: server-side, revocable, in an `HttpOnly`, `Secure`, `SameSite` cookie. No tokens in browser storage.
+- Login errors never reveal whether an email exists. Repeated failed logins are throttled.
+- Every input is validated on the server with Zod, including filter, sort and pagination parameters.
+- No SQL built by joining strings. User text is rendered as text, never as HTML.
+- Errors shown to users are generic; details go only to server logs. Secrets, passwords and tokens never appear in logs, responses, the repository or frontend code.
+- The audit log records: failed logins, price changes, contract approvals, payments.
+
+**Rationale:** the system must be safe to put on the internet tomorrow.
+
+### VIII. Scope Discipline and Simplicity
+
+- Build only what the brief asks. Out of scope: dashboard, export, file upload, contract cancellation, CRM stages, user management, password reset.
+- "Extra" items start only after all required items are complete and tested.
+- No new dependency without a clear reason written in the plan.
+- When a business rule is unclear, ask, decide, and record the decision in the README "Assumptions" section.
+
+**Rationale:** fewer features built well beat a complete but fragile system.
+
+## Technical Constraints
+
+- Next.js App Router + TypeScript strict; API through Route Handlers under `/api`; TanStack Query on the client with server-side prefetch.
+- PostgreSQL + Prisma, with migrations and seed.
+- The whole system starts on a clean machine with `git clone` then `docker compose up`.
+- Arabic RTL UI that works on mobile and desktop, with loading, empty and error states.
+- `npm audit` shows no high or critical vulnerabilities. Basic HTTP security headers are set.
+
+## Development Workflow
+
+- One spec per phase, in order. A phase starts only when the previous phase is merged and its tests pass.
+- Per phase: `/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement`.
+- Every plan has a Constitution Check that lists each principle above as PASS or explains the exception.
+- Commit after each completed task with a small Conventional Commit. Never one big commit.
+- A phase is done when `npm run lint`, `npm run typecheck`, `npm run test` and the phase's integration tests pass, and `/security-review` shows no open issues.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution overrides AGENTS.md, specs, plans and tasks. Only `docs/brief.md` overrides it.
+- Any change needs a reason, an updated version number, and a check that AGENTS.md still agrees with it.
+- Versioning: MAJOR when a principle is removed or changed in meaning, MINOR when one is added, PATCH for wording.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-11
