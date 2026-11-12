@@ -43,7 +43,7 @@ description: "Task list for phase 2: login, logout and app shell"
 - [ ] T002 Add shadcn primitives (approved, research R13): run the shadcn CLI `add button input label card sheet` with the existing `components.json` (`radix-nova`, `rtl: true`). Then:
   - in `package.json`, pin `radix-ui` (and any other package the CLI added) to the exact installed version, with no `^` or `~`, and run `npm install` to update `package-lock.json`;
   - check that the files land in `src/shared/components/ui/` with kebab-case names, and use only logical classes (replace any `ml-`/`mr-`/`left-`/`right-`/`pl-`/`pr-`);
-  - revert any CLI change to `src/app/globals.css` or other files that this phase does not need;
+  - keep any CSS variables or `@import`s in `src/app/globals.css` that the generated components use; revert only CLI changes to unrelated files (`layout.tsx`, rewrites of `src/shared/lib/utils.ts`, components not listed above);
   - `npm audit --audit-level=high` shows no high or critical issues.
 
   Delete `src/shared/components/ui/.gitkeep`. Commit `chore: add radix-ui and shadcn primitives`.
@@ -199,7 +199,9 @@ description: "Task list for phase 2: login, logout and app shell"
   - each writes exactly one `LOGIN_FAILED` row with `meta = { email: <normalized>, reason: "invalid_credentials" }`. The known email row has `userId` + `companyId`; the unknown one has both `null`;
   - invalid input (400) writes **no** row;
   - no audit row's `meta` contains the submitted password string;
-  - a successful login writes no row.
+  - a successful login writes no row;
+  - tenant (constitution I): users in companies A and B each fail once; each row carries its own user's `companyId`, never the other company's;
+  - server error (FR-030, SC-006, edge case "database down"): in its own file `tests/integration/features/auth/login-errors.test.ts` (module mocks apply to the whole file), `vi.mock` the auth repository so `findUserByEmail` rejects (ESM exports cannot be `vi.spyOn`-ed), and `vi.mock("@/server/logger")` to return `createLogger(<in-memory stream>)`. Expect 500 `INTERNAL_ERROR` with the generic message, no `Set-Cookie`, no session, and the captured log contains neither the submitted password nor any `aqar_session` value. This case may pass before T027–T030; it guards against regressions.
 - [ ] T026 [US2] Create `tests/integration/features/auth/login-lock.test.ts`. Each case uses its own fresh user/email. Cases:
   1. 4 wrong → the correct password → 200.
   2. 5 wrong → the 6th with the **correct** password → 401 `INVALID_CREDENTIALS`, no new session, the last row has `reason: "locked"`. Rows: exactly 5 `invalid_credentials` + 1 `locked`.
@@ -248,7 +250,8 @@ description: "Task list for phase 2: login, logout and app shell"
 
 - [ ] T031 [P] [US4] Create `tests/integration/server/auth/session-gate.test.ts` for `GET /api/auth/me`:
   - a valid session from `makeSession(userId, now + 1 day)` → 200 `{ data: { name, role, companyName } }`;
-  - no cookie, `aqar_session=<random 43 chars>`, `aqar_session=` (empty), and an expired session from `makeSession(userId, now − 1 s)` → each 401, with bodies `toEqual` each other (`UNAUTHORIZED`, "يجب تسجيل الدخول أولاً") and no `data`.
+  - no cookie, `aqar_session=<random 43 chars>`, `aqar_session=` (empty), and an expired session from `makeSession(userId, now − 1 s)` → each 401, with bodies `toEqual` each other (`UNAUTHORIZED`, "يجب تسجيل الدخول أولاً") and no `data`;
+  - tenant (constitution I): users in companies A and B, each with a session. `me` with A's token returns A's company name and never B's, and the same for B.
 - [ ] T032 [P] [US4] Add a case to `tests/unit/architecture/conventions.test.ts`: every `page.tsx` under `src/app/` except `src/app/login/page.tsx` contains `requireUser(`, and `src/app/login/page.tsx` contains `getCurrentUser(`. It must fail if a new page forgets the check.
 
 ### Implementation for User Story 4
@@ -338,7 +341,7 @@ description: "Task list for phase 2: login, logout and app shell"
 
   Logical classes only. No horizontal scroll from 360 px.
 - [ ] T040 [US6] Change `src/app/(app)/layout.tsx` to `<CurrentUserProvider user={…}><AppShell>{children}</AppShell></CurrentUserProvider>`, and remove the temporary logout button render from T036. `npm run build` must pass.
-- [ ] T041 [US6] Manual check per quickstart §4: DevTools at 375 px and 1280 px, logged in as `manager@ufuq.test`, `sales1@ufuq.test` and `accountant@ufuq.test`. Check RTL, no horizontal scroll, Home is the only item, and the menu opens and closes by click, Enter/Space and Escape. Check that the login page fits at 375 px. Fix what fails. Commit `feat: add responsive RTL app shell with role-filtered navigation`.
+- [ ] T041 [US6] Manual check per quickstart §4: DevTools at 375 px and 1280 px, logged in as `manager@ufuq.test`, `sales1@ufuq.test` and `accountant@ufuq.test`. Check RTL, no horizontal scroll, Home is the only item, and the menu opens and closes by click, Enter/Space and Escape. Check that the login page fits at 375 px, and that no page shows a sign-up, "forgot password" or user-management link (FR-002). Fix what fails. Commit `feat: add responsive RTL app shell with role-filtered navigation`.
 
 **Checkpoint**: all user stories are complete.
 
@@ -355,6 +358,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - Record which browsers keep the `Secure` cookie on `http://localhost` in README "Running".
   - **If Safari (or any tested browser) refuses it, STOP and ask the user before changing the cookie** (research R2).
   - Record the timing result (SC-005) in the commit message.
+  - Record the page gate checks in the commit message (FR-020, FR-022, SC-007; automated only by the optional Playwright test, brief 3.8): `/` with no cookie → `/login`; `/` after logout with the old cookie value pasted back in DevTools → `/login`; `/login` while logged in → `/`.
 - [ ] T044 Security self-check:
   - `grep -rn "console\." src/` → none;
   - `grep -rn "passwordHash" src/` → only the auth repository/service and `password.ts`;

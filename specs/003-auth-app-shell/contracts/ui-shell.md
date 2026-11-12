@@ -14,7 +14,8 @@ classes are used (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`).
 - Field errors show under each field (`aria-invalid`, `aria-describedby`).
 - The form-level error shows above the fields in an `role="alert"` box:
   - `INVALID_CREDENTIALS` → "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-  - Any other error or a network failure → "تعذر تسجيل الدخول، حاول مرة أخرى"
+  - Any other error or a network failure → "تعذر تسجيل الدخول، حاول مرة أخرى". The client uses its own text here,
+    not the API's `INTERNAL_ERROR` message, because it also covers network failures that have no response.
 - While the request runs, the button shows "جارٍ تسجيل الدخول…" and is disabled, so a second submit is blocked.
 - There are no links to sign-up, "forgot password" or user management.
 - Works from 360 px wide with no horizontal scroll.
