@@ -70,3 +70,6 @@ changing anything (research R2).
 
 Send 20 logins with unknown emails and 20 with a known email and a wrong password. Spread the known-email
 attempts over the 8 seed accounts, at most 4 each, so the lock does not trigger. The average times should differ by less than 20%. This is not part of CI.
+
+Run it on a fresh volume (the attempts count toward each account's lock): `node scripts/login-timing.ts
+http://localhost:3000`. It prints both averages and the difference, and exits 1 at 20% or more.
