@@ -121,8 +121,10 @@ Vitest 5.1. Results marked **Observed** were checked in this worktree on 2026-11
 - **Observed**: `handleRoute` (`src/server/http/route-handler.ts:42`) refuses POST, PUT, PATCH and DELETE when
   `Origin !== APP_ORIGIN`, which includes a missing header, before any auth work, with `INVALID_ORIGIN` (403).
   This matches spec FR-023.
-- **Decision**: no change. This phase adds the integration tests the spec requires, through the real login and
-  logout routes.
+- **Decision**: keep the check, and let `APP_ORIGIN` hold a comma-separated list matched entry by entry (exact
+  string equality). The shipped value allows `http://localhost:3000` and `http://127.0.0.1:3000`, because the
+  clean-clone check showed login refused on `127.0.0.1`. This phase adds the integration tests the spec requires,
+  through the real login and logout routes.
 
 ## R9. Route wrapper and the session gate
 

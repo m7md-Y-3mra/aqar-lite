@@ -3,8 +3,9 @@
 **Feature**: `003-auth-app-shell`
 
 All responses use the phase 0 shape: `{ data }` or `{ error: { code, message, fieldErrors? } }`.
-Mutating requests (POST) pass the phase 0 origin check first: `Origin` must equal `APP_ORIGIN` exactly, or the
-response is `403 INVALID_ORIGIN` and nothing else runs.
+Mutating requests (POST) pass the origin check first: `Origin` must equal one entry of `APP_ORIGIN` exactly, or
+the response is `403 INVALID_ORIGIN` and nothing else runs. `APP_ORIGIN` is a comma-separated list; the shipped value
+is `http://localhost:3000,http://127.0.0.1:3000`. No wildcards or prefix matches; a missing `Origin` is refused.
 
 Session cookie: `aqar_session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`.
 Clearing: the same attributes with an empty value and `Max-Age=0`.

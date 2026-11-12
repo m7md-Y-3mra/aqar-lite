@@ -53,9 +53,10 @@ export function handleRoute<Ctx = unknown>(
 ): Route<Ctx> {
   return async (req: Request, ctx: Ctx): Promise<Response> => {
     try {
+      const origin = req.headers.get("Origin");
       if (
         ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
-        req.headers.get("Origin") !== getEnv().APP_ORIGIN
+        (origin === null || !getEnv().APP_ORIGIN.includes(origin))
       ) {
         throw new AppError("INVALID_ORIGIN");
       }

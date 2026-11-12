@@ -50,26 +50,32 @@ beforeEach(async () => {
 });
 
 describe("auth origin protection", () => {
-  it.each([FOREIGN_ORIGIN, null, "http://localhost:3000.evil.test", "http://localhost:3001"])(
-    "rejects login from %s without cookies, sessions or audits",
+  it.each([
+    FOREIGN_ORIGIN,
+    null,
+    "http://localhost:3000.evil.test",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+  ])("rejects login from %s without cookies, sessions or audits", async (origin) => {
+    const sessionsBefore = await getDb().session.count();
+    const auditsBefore = await getDb().auditLog.count();
+    const response = await postLogin(origin);
+    expect(response.status).toBe(403);
+    expect(await readJson(response)).toMatchObject({ error: { code: "INVALID_ORIGIN" } });
+    expect(response.headers.get("set-cookie")).toBeNull();
+    await expect(getDb().session.count()).resolves.toBe(sessionsBefore);
+    await expect(getDb().auditLog.count()).resolves.toBe(auditsBefore);
+  });
+
+  it.each([OWN_ORIGIN, "http://127.0.0.1:3000"])(
+    "accepts login from listed origin %s",
     async (origin) => {
-      const sessionsBefore = await getDb().session.count();
-      const auditsBefore = await getDb().auditLog.count();
       const response = await postLogin(origin);
-      expect(response.status).toBe(403);
-      expect(await readJson(response)).toMatchObject({ error: { code: "INVALID_ORIGIN" } });
-      expect(response.headers.get("set-cookie")).toBeNull();
-      await expect(getDb().session.count()).resolves.toBe(sessionsBefore);
-      await expect(getDb().auditLog.count()).resolves.toBe(auditsBefore);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("set-cookie")).toContain("aqar_session=");
+      await expect(getDb().session.count({ where: { userId: user.id } })).resolves.toBe(1);
     },
   );
-
-  it("accepts login from the exact app origin", async () => {
-    const response = await postLogin(OWN_ORIGIN);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("set-cookie")).toContain("aqar_session=");
-    await expect(getDb().session.count({ where: { userId: user.id } })).resolves.toBe(1);
-  });
 
   it("refuses foreign logout without ending the session", async () => {
     const token = await makeSession(user.id, new Date(Date.now() + 86_400_000));

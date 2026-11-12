@@ -20,8 +20,25 @@ function errorOf(source: Record<string, string | undefined>) {
 
 describe("parseEnv", () => {
   it("returns typed values and defaults LOG_LEVEL to info", () => {
-    expect(parseEnv(VALID)).toEqual({ ...VALID, LOG_LEVEL: "info" });
+    expect(parseEnv(VALID)).toEqual({
+      ...VALID,
+      APP_ORIGIN: ["http://localhost:3000"],
+      LOG_LEVEL: "info",
+    });
   });
+
+  it("splits APP_ORIGIN into trimmed origins", () => {
+    expect(
+      parseEnv({ ...VALID, APP_ORIGIN: "http://localhost:3000, http://127.0.0.1:3000" }).APP_ORIGIN,
+    ).toEqual(["http://localhost:3000", "http://127.0.0.1:3000"]);
+  });
+
+  it.each(["http://localhost:3000,http://x.com/path", "http://localhost:3000,", "*"])(
+    "rejects an APP_ORIGIN list with an invalid entry: %s",
+    (value) => {
+      expect(errorOf({ ...VALID, APP_ORIGIN: value })).toContain("APP_ORIGIN: must be");
+    },
+  );
 
   it("names a missing DATABASE_URL", () => {
     expect(errorOf({ ...VALID, DATABASE_URL: undefined })).toContain("DATABASE_URL: missing");
@@ -33,7 +50,7 @@ describe("parseEnv", () => {
 
   it("rejects an APP_ORIGIN with a path", () => {
     expect(errorOf({ ...VALID, APP_ORIGIN: "http://x.com/path" })).toContain(
-      "APP_ORIGIN: must be an origin",
+      "APP_ORIGIN: must be a comma-separated list of origins",
     );
   });
 

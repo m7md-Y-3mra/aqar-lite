@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Dev only: Next blocks its dev resources for hosts other than localhost; APP_ORIGIN also lists 127.0.0.1.
+  allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     const csp = [
       "default-src 'self'",
