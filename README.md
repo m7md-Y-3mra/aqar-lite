@@ -106,6 +106,12 @@ apply all migrations to it before running, and refuse any database whose name do
 - The CI check (lint and typecheck on every pull request to `main`) runs and shows pass or fail. It is not a
   required check.
 - Until sessions exist (phase 2), API routes that need a user always answer 401.
+- Login lock (phase 2): every failed login is written to the audit log with a reason, `invalid_credentials`
+  (wrong email or password) or `locked` (refused because the email is locked). An email is locked while it has 5
+  or more `invalid_credentials` rows in the last 15 minutes. `locked` rows are not counted, so retries during the
+  lock never extend it: it ends 15 minutes after the oldest of those 5 failures. While locked, the password is not
+  checked, the message is the same generic one, and the response time stays similar. Emails are counted trimmed
+  and lowercase, whether or not the account exists.
 
 ## Security
 
@@ -120,6 +126,9 @@ Known limits:
 - The CSP allows inline scripts (`'unsafe-inline'`). A nonce-based CSP needs a proxy on every request; it is
   not worth it for this test.
 - Log redaction reaches one level of nesting (`user.password`), not deeper. Request bodies are never logged raw.
+- The login lock is per email (phase 2). It stops guessing one account's password, but not password spraying
+  (a few common passwords tried against many accounts), and anyone who knows a user's email can lock that user
+  out for 15 minutes on purpose.
 
 The "3 biggest risks" section is written in the final phase.
 
@@ -130,6 +139,11 @@ Business features (units, clients, reservations, contracts, payments, audit log)
 - The app connects as the table owner, which could deliberately disable the append-only triggers.
   The fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and
   `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs (migrations and app).
+- No per-IP login limit and no CAPTCHA. With more time: a per-IP limit when deployed behind a trusted proxy, with
+  the client IP taken only from that proxy's header, or a CAPTCHA after repeated failures. It is not built now
+  because `docker compose up` has no proxy: requests reach the app through Docker's network, so the app sees
+  the Docker gateway address instead of each user's address. A per-IP limit would then either block everyone at
+  once or have to trust a forwarding header that any client can fake.
 
 ## AI tools
 

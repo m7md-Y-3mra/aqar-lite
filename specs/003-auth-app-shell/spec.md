@@ -12,6 +12,13 @@
 
 > **Dependency**: Builds on phase 1 (`002-schema-seed`, merged): users with one role and one company, sessions stored by token hash, the append-only audit log with the `LOGIN_FAILED` action, the per-email failed-login index, and the eight seed accounts. Builds on phase 0: the configured app origin (`APP_ORIGIN`), the route wrapper and the error codes. No schema change is expected in this phase.
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: How long does the login lock last, and do refused attempts during the lock extend it? → A: Rolling 15-minute window over wrong-credential failures only. Every failed login is audited with a reason: `invalid_credentials` (wrong email or password) or `locked` (refused because the email is locked). Only `invalid_credentials` rows count; `locked` rows never extend the lock. While locked, the submitted password is not verified, but the response is the same generic message with a similar response time. A test proves a user who retries with the correct password while locked can log in once the window passes.
+- Q: Add a per-IP login limit as well as the per-email lock? → A: No, per-email lock only. README "Security" states that it does not stop password spraying across many accounts and lets anyone lock a known user out for 15 minutes. README "Not done" lists a per-IP limit behind a trusted proxy (IP only from that proxy's header) or a CAPTCHA after repeated failures, and explains why not now: under `docker compose` with no proxy the app sees the Docker gateway address for every user, so a per-IP limit would block everyone or trust a spoofable header.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Log in and reach the home page (Priority: P1)
@@ -39,20 +46,20 @@ Someone tries to log in with a wrong email or a wrong password. They always see 
 
 **Why this priority**: The brief requires protection against password guessing and a login error that does not reveal whether the email exists (section 4), and an audit of failed logins. These are security requirements, judged before features.
 
-**Independent Test**: Against a test database, send 5 wrong-password logins for one seed email, then the correct password as the 6th attempt, and confirm the 6th is refused with the generic message, and that 6 failed-login audit rows exist for that email.
+**Independent Test**: Against a test database, send 5 wrong-password logins for one seed email, then the correct password as the 6th attempt, and confirm the 6th is refused with the generic message, and that 6 failed-login audit rows exist for that email (5 `invalid_credentials`, 1 `locked`).
 
 **Acceptance Scenarios**:
 
 1. **Given** an email that exists, **When** a wrong password is submitted, **Then** the user sees the generic message "البريد الإلكتروني أو كلمة المرور غير صحيحة" at the top of the form and stays on the login page.
 2. **Given** an email that does not exist, **When** any password is submitted, **Then** the user sees exactly the same message and the response has the same status and shape as for a wrong password.
 3. **Given** an email that exists and an email that does not, **When** a wrong login is sent for each, **Then** both go through the same password-checking work, so their response times cannot be told apart.
-4. **Given** any failed login (wrong email, wrong password or blocked), **When** it finishes, **Then** one failed-login audit row exists with the tried email (trimmed and lowercased) and the time; for an existing account it also records the user and company. The password is never stored or logged.
-5. **Given** 4 failed logins for one email in the last 15 minutes, **When** the correct password is submitted, **Then** login succeeds (the limit is not reached early).
-6. **Given** 5 failed logins for one email in the last 15 minutes, **When** a 6th login is submitted with the correct password, **Then** it is refused with the same generic message, no session is created, and a failed-login audit row is written.
-7. **Given** an email blocked by 5 failures, **When** 15 minutes have passed since the oldest of those failures and no further attempts were made, **Then** the correct password logs in again.
-8. **Given** 5 failed logins for email A, **When** someone logs in to email B with the correct password, **Then** login succeeds; the block applies to one email only.
+4. **Given** any failed login (wrong email, wrong password or locked), **When** it finishes, **Then** one failed-login audit row exists with the tried email (trimmed and lowercased), the time and the reason (`invalid_credentials` or `locked`); for an existing account it also records the user and company. The password is never stored or logged.
+5. **Given** 4 wrong-credential failures for one email in the last 15 minutes, **When** the correct password is submitted, **Then** login succeeds (the limit is not reached early).
+6. **Given** 5 wrong-credential failures for one email in the last 15 minutes, **When** a 6th login is submitted with the correct password, **Then** it is refused with the same generic message, no session is created, and a failed-login audit row with reason `locked` is written.
+7. **Given** an email locked by 5 wrong-credential failures, **When** the user keeps retrying with the correct password during the lock and then retries after 15 minutes have passed since the oldest of those 5 failures, **Then** the retries during the lock are refused and the retry after the window logs in; the refused retries did not extend the lock.
+8. **Given** 5 wrong-credential failures for email A, **When** someone logs in to email B with the correct password, **Then** login succeeds; the lock applies to one email only.
 9. **Given** failures sent with different letter case or spaces (`Ali@x.test`, ` ali@x.test `), **When** they are counted, **Then** they count as the same email.
-10. **Given** an email that does not exist, **When** 5 failed logins are sent for it, **Then** the 6th is blocked the same way, so blocking does not reveal whether the email exists.
+10. **Given** an email that does not exist, **When** 5 wrong-credential failures are sent for it, **Then** the 6th is refused as locked the same way, so the lock does not reveal whether the email exists.
 
 ---
 
@@ -132,12 +139,12 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 
 ### Edge Cases
 
-- **Correct password while blocked**: refused with the generic message. Accepting it would let an attacker confirm a guess during the block (Story 2, scenario 6).
-- **Attacks continue during the block**: each blocked attempt is itself a failed login and is counted, so the block lasts as long as attempts keep coming, and ends 15 minutes after the 5th-most-recent failure.
-- **Lockout of a victim**: anyone who knows a user's email can block that user for 15 minutes by sending 5 wrong passwords. Accepted for this test (see Assumptions).
-- **Successful login does not reset the count**: 4 failures, a success, then 1 more failure within 15 minutes blocks the next attempt. The audit log has no "login succeeded" action to reset from.
+- **Correct password while locked**: refused with the generic message. Accepting it would let an attacker confirm a guess during the lock (Story 2, scenario 6).
+- **Attempts continue during the lock**: each refused attempt is audited with reason `locked` but is not counted, so it never extends the lock. The lock ends 15 minutes after the oldest of the 5 most recent `invalid_credentials` failures. An attacker gets at most 5 password guesses per email per 15 minutes.
+- **Lockout of a victim**: anyone who knows a user's email can lock that user out for 15 minutes by sending 5 wrong passwords. Accepted for this test (see Assumptions).
+- **Successful login does not reset the count**: 4 failures, a success, then 1 more failure within 15 minutes locks the email for the next attempt. The audit log has no "login succeeded" action to reset from.
 - **Very long input**: an email or password above the maximum length (FR-005) is refused as invalid input before any password check, so huge inputs cannot burn server time.
-- **Blocked email that does not exist**: blocked the same way as a real one (Story 2, scenario 10).
+- **Locked email that does not exist**: locked the same way as a real one (Story 2, scenario 10).
 - **Expired session cookie still in the browser**: treated as no session (Story 4, scenario 3).
 - **Tampered or random token**: treated as no session; the response does not say whether a token was malformed, unknown or expired.
 - **Logout twice / logout without session**: succeeds silently and ends on the login page (Story 3, scenario 5).
@@ -156,12 +163,12 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 - **FR-001**: The system MUST provide a login page with an email field and a password field, in Arabic. It is the only page reachable without a session.
 - **FR-002**: The system MUST NOT provide self sign-up, a user management screen or password reset, and MUST NOT show links to them.
 - **FR-003**: The system MUST normalize the submitted email (trim spaces, lowercase) before looking up the user and before counting failures.
-- **FR-004**: On a correct email and password for an unblocked email, the system MUST create a new session and send the user to the home page. The home page MUST be the only destination after login; no return address is read from the request.
+- **FR-004**: On a correct email and password for an email that is not locked, the system MUST create a new session and send the user to the home page. The home page MUST be the only destination after login; no return address is read from the request.
 - **FR-005**: The system MUST validate login input on the server: email required, valid email format, at most 254 characters; password required, at most 128 characters. Invalid input MUST return field errors shown next to each field, and MUST NOT count as a failed login or write an audit row.
-- **FR-006**: Every login failure for valid input — unknown email, wrong password, or blocked email — MUST return the same response status, the same response shape and the same Arabic message: "البريد الإلكتروني أو كلمة المرور غير صحيحة".
-- **FR-007**: Every login failure path MUST do the same password-checking work (an unknown email is checked against a dummy password hash; a blocked email still has its password checked), so the response time does not reveal whether the email exists or is blocked.
-- **FR-008**: Before accepting a login, the system MUST count the failed logins for the normalized email in the last 15 minutes. If there are 5 or more, the login MUST be refused with the generic message, even when the password is correct.
-- **FR-009**: Every failed login (unknown email, wrong password or blocked email) MUST write one failed-login audit row with the normalized email and the time, plus the user and company when the email belongs to an account, and the reason (bad credentials or blocked). Blocked attempts count toward the 15-minute window.
+- **FR-006**: Every login failure for valid input — unknown email, wrong password, or locked email — MUST return the same response status, the same response shape and the same Arabic message: "البريد الإلكتروني أو كلمة المرور غير صحيحة".
+- **FR-007**: Every login failure path MUST take a similar response time, so the time does not reveal whether the email exists or is locked. An unknown email is checked against a dummy password hash. A locked email MUST NOT have the submitted password verified against the account, but MUST do equivalent dummy hashing work so its response time matches the other paths.
+- **FR-008**: Before checking the password, the system MUST count the failed-login audit rows with reason `invalid_credentials` for the normalized email in the last 15 minutes. If there are 5 or more, the email is locked: the login MUST be refused with the generic message, even when the password is correct. Rows with reason `locked` MUST NOT be counted.
+- **FR-009**: Every failed login MUST write one failed-login audit row with the normalized email, the time, the user and company when the email belongs to an account, and a reason: `invalid_credentials` for an unknown email or a wrong password, `locked` for an attempt refused because the email is locked.
 - **FR-010**: Passwords MUST never appear in any log, audit row, response or error message.
 
 **Sessions**
@@ -217,16 +224,17 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 
 - **FR-031**: Integration tests against a real database MUST prove:
   1. After logout, a request to a protected API route with the raw token kept from before logout returns 401.
-  2. After 5 failed logins for one email within 15 minutes, a 6th login with the **correct** password is refused with the generic message, and after only 4 failures the correct password succeeds.
-  3. A POST with a foreign `Origin` is refused with 403 and changes nothing, a POST with no `Origin` is refused, and the same POST with the system's own origin is accepted.
-  4. An unknown email and a wrong password return the same status, shape and message, and each writes one failed-login audit row.
-  5. A protected API route returns 401 with no cookie, with a random token and with an expired session.
+  2. After 5 wrong-credential failures for one email within 15 minutes, a 6th login with the **correct** password is refused with the generic message and writes a `locked` row, and after only 4 failures the correct password succeeds.
+  3. A user who retries with the correct password while locked (each retry refused and written as `locked`) can log in once 15 minutes have passed since the oldest of the 5 failures; the `locked` retries do not extend the lock.
+  4. A POST with a foreign `Origin` is refused with 403 and changes nothing, a POST with no `Origin` is refused, and the same POST with the system's own origin is accepted.
+  5. An unknown email and a wrong password return the same status, shape and message, and each writes one `invalid_credentials` audit row.
+  6. A protected API route returns 401 with no cookie, with a random token and with an expired session.
 
 ### Key Entities
 
 - **User** (from phase 1): a staff member with one company and one role. Login reads the email, password hash, role, name and company.
 - **Session** (from phase 1): one login of one user on one device. Stored by the hash of its token, with a fixed expiry 7 days after creation. Deleted on logout.
-- **Audit Log — failed login** (from phase 1): one row per failed login, with the normalized email, the time, the reason, and the user and company when the email is known. Never changed or deleted. Also the source for counting recent failures.
+- **Audit Log — failed login** (from phase 1): one row per failed login, with the normalized email, the time, the reason (`invalid_credentials` or `locked`), and the user and company when the email is known. Never changed or deleted. Its `invalid_credentials` rows are the source for the lock count.
 
 ## Success Criteria *(mandatory)*
 
@@ -234,22 +242,22 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 
 - **SC-001**: Each of the 8 seed accounts can log in from the README credentials and reach the home page in under 1 minute, on a phone and on a desktop.
 - **SC-002**: After logout, 100% of requests that reuse the old session token are refused (401 for API routes, login page for pages).
-- **SC-003**: For one email, the 6th login within 15 minutes after 5 failures is refused in 100% of runs, even with the correct password, and the 5th attempt is never blocked early.
+- **SC-003**: For one email, the 6th login within 15 minutes after 5 wrong-credential failures is refused in 100% of runs, even with the correct password, and the 5th attempt is never refused as locked early.
 - **SC-004**: 100% of mutating requests with a foreign or missing origin are refused without changing any data; 100% of the same requests from the system's own origin are accepted.
 - **SC-005**: A wrong email and a wrong password give identical messages and statuses in 100% of attempts, and over 20 attempts of each their average response times differ by less than 20% (manual check; not an automated test, to avoid flaky timing in CI).
-- **SC-006**: 100% of failed logins (wrong email, wrong password, blocked) produce exactly one failed-login audit row, and 0 log lines or audit rows contain a password or a raw token.
+- **SC-006**: 100% of failed logins (wrong email, wrong password, locked) produce exactly one failed-login audit row, and 0 log lines or audit rows contain a password or a raw token.
 - **SC-007**: 0 app pages other than the login page render content without a valid session, and 0 API routes other than login return data without one.
 - **SC-008**: At 375 px and 1280 px widths, every page of this phase has no horizontal scroll, is right-to-left, and shows each role only its allowed navigation items.
 
 ## Assumptions
 
-- **Lock window**: the block is computed from the failed-login audit rows: login is refused while the normalized email has 5 or more failures in the last 15 minutes. Blocked attempts are failures too, so a continued attack keeps the email blocked; once attempts stop, the block ends 15 minutes after the 5th-most-recent failure. With 5 quick failures this equals "blocked for 15 minutes".
-- **No reset on success**: a successful login does not clear earlier failures, because the audit log has only failure events. A user with 4 typos, then a success, then 1 typo within 15 minutes is blocked. Accepted for simplicity.
-- **Victim lockout and no per-address limit**: blocking is per email only. Anyone can block a known email for 15 minutes, and one attacker can try many different emails. A per-network-address limit is listed in the README "Not done" section; the lockout risk goes in the README "Security" section.
+- **Lock window** (confirmed in Clarifications): the lock is computed from the failed-login audit rows: login is refused while the normalized email has 5 or more `invalid_credentials` failures in the last 15 minutes. Refused attempts are audited as `locked` and never counted, so they never extend the lock; it ends 15 minutes after the oldest of the 5 most recent wrong-credential failures. With 5 quick failures this equals "blocked for 15 minutes". The README "Assumptions" section states this rule.
+- **No reset on success**: a successful login does not clear earlier failures, because the audit log has only failure events. A user with 4 typos, then a success, then 1 typo within 15 minutes is locked out. Accepted for simplicity.
+- **Victim lockout and no per-address limit**: the lock is per email only (confirmed in Clarifications). Anyone can lock a known email for 15 minutes, and one attacker can spray a few passwords across many emails; both risks are stated in the README "Security" section. A per-IP limit behind a trusted proxy, or a CAPTCHA after repeated failures, is listed in README "Not done" with the reason it is not built: without a proxy the app sees one Docker gateway address for every user, so a per-IP limit would block everyone or trust a spoofable header. No per-IP limit and no CAPTCHA are built in this phase.
 - **Session lifetime**: fixed 7 days from login, no sliding renewal and no "remember me" choice. Sessions are not ended when a password changes, because passwords cannot change in this system.
 - **Supported address**: the system is reached at the configured origin (`http://localhost:3000` in the default compose setup). Browsers treat `localhost` as a secure context, so the secure-only cookie works there over plain HTTP. Opening it through another host name (such as `127.0.0.1`) is not supported, because the origin check compares with the one configured origin. The README states this.
 - **Missing `Origin`**: refused for mutating requests. Every current browser sends `Origin` on POST, PUT, PATCH and DELETE from a page, so real users are not affected.
 - **Navigation map**: the role map in FR-024 follows the brief's role table: the manager sees everything in the company and the audit log; the sales rep works with units, own clients, own reservations and own draft contracts; the accountant works with contracts and payments (payments live inside the contract page). Later phases may adjust it and must keep server checks either way.
 - **Expired session cleanup**: expired sessions are refused on use; deleting old expired rows in the background is not needed (no scheduled jobs in this system).
-- **Failed-login reason**: the audit row records the reason (bad credentials or blocked) for review only; both reasons count toward the window.
+- **Failed-login reason**: the audit row records `invalid_credentials` or `locked`. Only `invalid_credentials` counts toward the lock; `locked` rows exist so every failed login is audited (brief section 4) and so a reviewer can see attacks during a lock.
 - **Home page**: a welcome page only, not a dashboard (out of scope in the brief).
