@@ -2,6 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
+function isOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.origin === value;
+  } catch {
+    return false;
+  }
+}
+
 export const envSchema = z.object({
   DATABASE_URL: z
     .string({ error: "missing" })
@@ -11,18 +20,16 @@ export const envSchema = z.object({
       (value) => value.startsWith("postgresql://") || value.startsWith("postgres://"),
       "must start with postgresql:// or postgres://",
     ),
+  // Comma-separated list; the origin check matches each entry exactly.
   APP_ORIGIN: z
     .string({ error: "missing" })
     .trim()
     .min(1, "missing")
-    .refine((value) => {
-      try {
-        const url = new URL(value);
-        return (url.protocol === "http:" || url.protocol === "https:") && url.origin === value;
-      } catch {
-        return false;
-      }
-    }, "must be an origin like https://example.com (no path)"),
+    .transform((value) => value.split(",").map((entry) => entry.trim()))
+    .refine(
+      (origins) => origins.every(isOrigin),
+      "must be a comma-separated list of origins like https://example.com (no path)",
+    ),
   LOG_LEVEL: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z

@@ -14,7 +14,7 @@ export default defineConfig({
     testTimeout: 30_000,
     env: {
       DATABASE_URL: "postgresql://unit:unit@localhost:5432/unit_unused",
-      APP_ORIGIN: "http://localhost:3000",
+      APP_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000",
       LOG_LEVEL: "silent",
     },
   },

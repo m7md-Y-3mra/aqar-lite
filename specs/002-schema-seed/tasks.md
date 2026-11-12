@@ -185,7 +185,6 @@ description: "Task list for phase 1: database schema and seed"
 - [x] T025 Full stack check, quickstart §7: `docker compose down -v && docker compose up --build`; the app log shows both migrations applied and the seed run once; `docker compose restart app` shows the seed skipped.
 - [x] T026 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration` all pass. Re-run quickstart §1–§3. Fix anything that fails before continuing.
 - [x] T027 Run `/security-review` on the branch diff. Fix every open issue (commit each fix as `fix: …`).
-- [ ] T028 Run the `interview-notes` skill for phase 1 (private notes; not committed unless the skill says so).
 
 ---
 
@@ -198,7 +197,7 @@ description: "Task list for phase 1: database schema and seed"
 - **US1 (T010–T012)** and **US2 (T013–T014)**: need Foundational. Both edit `schema-constraints.test.ts`, so run them in order, not in parallel.
 - **US3 (T015–T017)**: needs Foundational. Independent of US1/US2 (different file).
 - **US4 (T018–T023)**: needs Foundational (tables). Independent of US1–US3.
-- **Polish (T024–T028)**: needs all stories.
+- **Polish (T024–T027)**: needs all stories.
 
 ### User Story Dependencies
 

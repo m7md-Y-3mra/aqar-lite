@@ -13,8 +13,13 @@ cd aqar-lite
 docker compose up
 ```
 
-Open **http://localhost:3000**. Use `localhost`, not `127.0.0.1`: mutating requests must come from the exact
-origin in `APP_ORIGIN` (`http://localhost:3000`).
+Open **http://localhost:3000**. Mutating requests must come from an origin listed in `APP_ORIGIN`, a
+comma-separated list matched entry by entry; the shipped value allows `http://localhost:3000` and
+`http://127.0.0.1:3000`.
+
+The session cookie is `Secure`. Browsers accept `Secure` cookies on `http://localhost`: tested on Chromium
+(login on `http://localhost:3000` and `http://127.0.0.1:3000`); Chrome and Firefox accept them too. Safari was not
+tested.
 
 What `docker compose up` does:
 
@@ -121,8 +126,9 @@ apply all migrations to it before running, and refuse any database whose name do
 
 Phase 0 controls: settings validated at startup; secrets only in environment variables (`.env.example` has
 none); logs redact password, token, cookie and authorization fields; unknown errors return a generic Arabic
-message and details go only to the log; mutating API requests must carry the app's exact `Origin`; security
-headers (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`); no `X-Powered-By`;
+message and details go only to the log; mutating API requests must carry an `Origin` listed in `APP_ORIGIN`
+(exact match); security headers (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`,
+`Permissions-Policy`); no `X-Powered-By`;
 the database listens on loopback only; the app container runs as a non-root user.
 
 Phase 2 controls: passwords hashed with Argon2id; database sessions where the cookie holds a random 32-byte

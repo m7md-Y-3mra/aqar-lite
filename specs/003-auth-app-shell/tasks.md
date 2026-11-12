@@ -366,7 +366,6 @@ description: "Task list for phase 2: login, logout and app shell"
   - `npm audit --audit-level=high` clean;
   - every `src/app/api/**/route.ts` only re-exports from a `*.routes.ts`.
 - [x] T045 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build` all pass. Then run `/security-review` and fix every open issue. Mark the tasks done in this file, and update `specs/003-auth-app-shell/checklists/requirements.md` if anything changed.
-- [ ] T046 Run the `interview-notes` skill for this phase (private notes and README points). Commit `docs: record phase 2 notes`.
 
 ---
 
@@ -386,7 +385,7 @@ description: "Task list for phase 2: login, logout and app shell"
 - **US3 (T034–T036)**: needs US1 (real login) and US4 (`me` for the replay).
 - **US5 (T037)**: needs US1 and US3 (login and logout routes) and US4 (`me`).
 - **US6 (T038–T041)**: needs US1 (layout, current-user context) and US3 (logout button).
-- **Polish (T042–T046)**: needs all stories.
+- **Polish (T042–T045)**: needs all stories.
 
 ### User Story Dependencies
 

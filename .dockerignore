@@ -2,9 +2,10 @@ node_modules
 .next
 .git
 .github
-.env
-.env.*
-!.env.example
+.claude
+.agents
+.specify
+.env*
 src/generated
 specs
 docs

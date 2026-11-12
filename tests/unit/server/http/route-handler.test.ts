@@ -43,10 +43,24 @@ describe("handleRoute origin check", () => {
     expect(res.status).toBe(403);
   });
 
-  it("accepts a POST from the app origin", async () => {
-    const res = await ok(post({ Origin: ORIGIN }), undefined);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ data: { ok: true } });
+  it.each([ORIGIN, "http://127.0.0.1:3000"])(
+    "accepts a POST from a listed origin: %s",
+    async (origin) => {
+      const res = await ok(post({ Origin: origin }), undefined);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ data: { ok: true } });
+    },
+  );
+
+  it.each([
+    "http://localhost:3000,http://127.0.0.1:3000",
+    "http://localhost:3000/",
+    "http://localhost:30001",
+    "http://localhost",
+    "null",
+  ])("rejects an Origin that only resembles a listed one: %s", async (origin) => {
+    const res = await ok(post({ Origin: origin }), undefined);
+    expect(res.status).toBe(403);
   });
 
   it("does not require Origin on GET", async () => {

@@ -22,7 +22,7 @@ export function LoginForm() {
         <CardDescription>سجّل الدخول للوصول إلى حسابك</CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="flex flex-col gap-5" noValidate onSubmit={onSubmit}>
+        <form className="flex flex-col gap-5" method="post" noValidate onSubmit={onSubmit}>
           {errors.root?.message ? (
             <div
               className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
