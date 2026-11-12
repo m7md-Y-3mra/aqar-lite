@@ -130,18 +130,18 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Create `vitest.integration.config.ts`:
+- [X] T034 [US2] Create `vitest.integration.config.ts`:
   - `test.include: ["tests/integration/**/*.test.ts"]`, `environment: "node"`, `fileParallelism: false`, `testTimeout: 30_000`, the same `@` and `server-only` aliases as T019, `globalSetup: ["tests/integration/setup/global-setup.ts"]`.
   - `const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test"`.
   - `test.env: { DATABASE_URL: testDbUrl, APP_ORIGIN: "http://localhost:3000", LOG_LEVEL: "silent" }`. The test workers never see the developer's app `DATABASE_URL`.
-- [ ] T035 [US2] Create `tests/integration/setup/global-setup.ts` (default export `async function setup()`). Resolve the same `testDbUrl`, then:
+- [X] T035 [US2] Create `tests/integration/setup/global-setup.ts` (default export `async function setup()`). Resolve the same `testDbUrl`, then:
   - (1) Parse the URL. If the database name does not end in `_test`, throw `Refusing to run integration tests against "<name>": the database name must end in _test.`
   - (2) Check the connection with `pg` (`new pg.Client({ connectionString, connectionTimeoutMillis: 3000 })`, `connect()`, `end()`). On failure, throw `Test database not reachable at <host>:<port>/<db>. Run \`docker compose up -d db\` first.` without the password.
   - (3) Run `execFileSync("npx", ["prisma", "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: testDbUrl }, stdio: "inherit" })`.
 
   This file is allowed to use the DB driver directly; the lint override comes in T040.
-- [ ] T036 [US2] Write `tests/integration/server/db.test.ts`: import `withTransaction` from `@/server/db`. Run `tx.$queryRaw\`SELECT current_database() AS db\`` inside it and assert `db === "aqar_test"`. Add a second case: `withTransaction(async (tx) => { await tx.$queryRaw\`SELECT 1\`; throw new Error("rollback") })` rejects with `rollback`. Disconnect in `afterAll` via `getDb().$disconnect()`.
-- [ ] T037 [US2] Validate US2 with quickstart.md §6 (copy `.env.example` → `.env`, `npm run db:generate`, lint, typecheck, test, `docker compose up -d db`, `test:integration`). Then stop the DB, confirm `npm run test` still passes, and confirm `npm run test:integration` fails with the "not reachable" message.
+- [X] T036 [US2] Write `tests/integration/server/db.test.ts`: import `withTransaction` from `@/server/db`. Run `tx.$queryRaw\`SELECT current_database() AS db\`` inside it and assert `db === "aqar_test"`. Add a second case: `withTransaction(async (tx) => { await tx.$queryRaw\`SELECT 1\`; throw new Error("rollback") })` rejects with `rollback`. Disconnect in `afterAll` via `getDb().$disconnect()`.
+- [X] T037 [US2] Validate US2 with quickstart.md §6 (copy `.env.example` → `.env`, `npm run db:generate`, lint, typecheck, test, `docker compose up -d db`, `test:integration`). Then stop the DB, confirm `npm run test` still passes, and confirm `npm run test:integration` fails with the "not reachable" message.
 
 **Checkpoint**: All four quality commands pass.
 
