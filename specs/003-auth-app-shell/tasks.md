@@ -39,8 +39,8 @@ description: "Task list for phase 2: login, logout and app shell"
 
 **Purpose**: Clean baseline and the approved UI dependency.
 
-- [ ] T001 Baseline: `npm ci`, `npm run db:generate`, `docker compose up -d db`, then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. If anything fails, STOP and tell the user.
-- [ ] T002 Add shadcn primitives (approved, research R13): run the shadcn CLI `add button input label card sheet` with the existing `components.json` (`radix-nova`, `rtl: true`). Then:
+- [x] T001 Baseline: `npm ci`, `npm run db:generate`, `docker compose up -d db`, then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. If anything fails, STOP and tell the user.
+- [x] T002 Add shadcn primitives (approved, research R13): run the shadcn CLI `add button input label card sheet` with the existing `components.json` (`radix-nova`, `rtl: true`). Then:
   - in `package.json`, pin `radix-ui` (and any other package the CLI added) to the exact installed version, with no `^` or `~`, and run `npm install` to update `package-lock.json`;
   - check that the files land in `src/shared/components/ui/` with kebab-case names, and use only logical classes (replace any `ml-`/`mr-`/`left-`/`right-`/`pl-`/`pr-`);
   - keep any CSS variables or `@import`s in `src/app/globals.css` that the generated components use; revert only CLI changes to unrelated files (`layout.tsx`, rewrites of `src/shared/lib/utils.ts`, components not listed above);
@@ -56,9 +56,9 @@ description: "Task list for phase 2: login, logout and app shell"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Add `INVALID_CREDENTIALS: 401` to `src/server/http/error-codes.ts`, and `INVALID_CREDENTIALS: "البريد الإلكتروني أو كلمة المرور غير صحيحة"` to `src/shared/lib/error-messages.ts`. `tests/unit/shared/lib/error-messages.test.ts` already checks that the keys match; run it.
-- [ ] T004 [P] Create `src/shared/lib/roles.ts`: `ROLES = ["MANAGER", "SALES", "ACCOUNTANT"] as const`, `type Role`, `ROLE_LABELS: Record<Role, string>` (مدير، مندوب مبيعات، محاسب). Test `tests/unit/shared/lib/roles.test.ts`: read `prisma/schema.prisma` as text, parse the `enum Role { … }` block, and assert it equals `ROLES` (no generated-client import).
-- [ ] T005 [P] Write `tests/unit/server/auth/session-token.test.ts` first, then `src/server/auth/session-token.ts`:
+- [x] T003 [P] Add `INVALID_CREDENTIALS: 401` to `src/server/http/error-codes.ts`, and `INVALID_CREDENTIALS: "البريد الإلكتروني أو كلمة المرور غير صحيحة"` to `src/shared/lib/error-messages.ts`. `tests/unit/shared/lib/error-messages.test.ts` already checks that the keys match; run it.
+- [x] T004 [P] Create `src/shared/lib/roles.ts`: `ROLES = ["MANAGER", "SALES", "ACCOUNTANT"] as const`, `type Role`, `ROLE_LABELS: Record<Role, string>` (مدير، مندوب مبيعات، محاسب). Test `tests/unit/shared/lib/roles.test.ts`: read `prisma/schema.prisma` as text, parse the `enum Role { … }` block, and assert it equals `ROLES` (no generated-client import).
+- [x] T005 [P] Write `tests/unit/server/auth/session-token.test.ts` first, then `src/server/auth/session-token.ts`:
   - `SESSION_COOKIE = "aqar_session"`, `SESSION_TTL_MS = 7 days`;
   - `generateSessionToken()`: `randomBytes(32).toString("base64url")`, 43 chars;
   - `hashSessionToken(token)`: sha256 lowercase hex, 64 chars, matching `/^[0-9a-f]{64}$/`;
@@ -68,7 +68,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - `readSessionToken(cookieHeader: string | null)`: returns the `aqar_session` value or `null`. It ignores other cookies and returns `null` for an empty value or one longer than 128 chars.
 
   Tests cover each function, including two tokens never being equal and a header with several cookies.
-- [ ] T006 [P] Write `tests/unit/server/auth/password.test.ts` first, then `src/server/auth/password.ts`:
+- [x] T006 [P] Write `tests/unit/server/auth/password.test.ts` first, then `src/server/auth/password.ts`:
   - `verifyPassword(hash, password)`: wraps `@node-rs/argon2` `verify`; returns `false` when it throws (research R3).
   - `DUMMY_PASSWORD_HASH`: a hard-coded constant. Generate it once with `node -e` and `hash()` defaults on a random throwaway string, and paste the result. Comment: same defaults as `prisma/run-seed.ts`; never computed at runtime.
 
@@ -77,21 +77,21 @@ description: "Task list for phase 2: login, logout and app shell"
   - `DUMMY_PASSWORD_HASH` starts with `$argon2id$v=19$m=19456,t=2,p=1$`;
   - `verifyPassword(DUMMY_PASSWORD_HASH, "anything")` → `false`;
   - a fresh `hash("pw")` verifies `true` for `"pw"`.
-- [ ] T007 Create `src/server/auth/session.repository.ts`. Each function takes an optional `tx` (default `getDb()`):
+- [x] T007 Create `src/server/auth/session.repository.ts`. Each function takes an optional `tx` (default `getDb()`):
   - `createSession({ id, userId, expiresAt }, tx?)`;
   - `findSessionWithUser(id, tx?)`: selects `expiresAt` and user `id`, `name`, `role`, `companyId`, and company `name`. **Never** selects `passwordHash`.
   - `deleteSession(id, tx?)`: `deleteMany({ where: { id } })`, so a missing row is not an error.
 
   Add a comment: these take no `companyId` because they establish the tenant (plan exception E1).
-- [ ] T008 Create `src/server/auth/session.service.ts`:
+- [x] T008 Create `src/server/auth/session.service.ts`:
   - `type SessionUser = { userId, companyId, role, name, companyName }`.
   - `getSessionUser(token: string | null, now = new Date()): Promise<SessionUser | null>`: `null` token → `null`; otherwise hash it, look it up, and return `null` unless `expiresAt > now`.
-- [ ] T009 Create `src/server/auth/request-user.ts` with `getRequestUser(req: Request)` = `getSessionUser(readSessionToken(req.headers.get("cookie")))`. Create `src/server/auth/require-user.ts`:
+- [x] T009 Create `src/server/auth/request-user.ts` with `getRequestUser(req: Request)` = `getSessionUser(readSessionToken(req.headers.get("cookie")))`. Create `src/server/auth/require-user.ts`:
   - `getCurrentUser = cache(async () => getSessionUser((await cookies()).get(SESSION_COOKIE)?.value ?? null))`;
   - `requireUser()`: returns the user or calls `redirect("/login")`.
 
   Both files start with `import "server-only"`.
-- [ ] T010 Change `src/server/http/route-handler.ts` (contracts/api-auth.md "Route wrapper change"):
+- [x] T010 Change `src/server/http/route-handler.ts` (contracts/api-auth.md "Route wrapper change"):
   - Order: origin check (unchanged) → for `auth: "user"`, `const user = await getRequestUser(req)`; no user → `AppError("UNAUTHORIZED")` → handler.
   - Type the options so a `"user"` handler receives `(req, ctx, user: SessionUser)`, and a `"public"` handler `(req, ctx)`.
   - Remove the "Phase 2" comment.
@@ -102,7 +102,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - with a user → the handler gets it;
   - a foreign `Origin` on a `user` POST → 403 and `getRequestUser` is **not** called;
   - keep all existing cases green.
-- [ ] T011 [P] Add test helpers:
+- [x] T011 [P] Add test helpers:
   - `tests/integration/support/db-fixtures.ts`:
     - `makeUserWithPassword(companyId, password, role?)`: real `hash()`; returns the user and its email;
     - `makeLoginFailure({ email, reason, createdAt, userId?, companyId? })`: inserts a `LOGIN_FAILED` audit row with `meta: { email, reason }`, and asserts that `email` is already trimmed and lowercase;
@@ -111,7 +111,7 @@ description: "Task list for phase 2: login, logout and app shell"
     - `apiRequest(path, { method, body?, origin?, cookie? })` builds a `Request`. The default origin is `http://localhost:3000`; `origin: null` omits the header.
     - `readJson(res)` and `getSetCookie(res)`.
   - `tests/integration/support/audit.ts`: `loginFailures(email)` returns the `LOGIN_FAILED` rows for that email, ordered by `createdAt`, through `$queryRaw` on `meta->>'email'`.
-- [ ] T012 Gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration` all pass. Commit T003–T012 in small commits (`feat: add session token and password helpers`, `feat: resolve session user in route wrapper`, `test: add auth fixtures`).
+- [x] T012 Gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration` all pass. Commit T003–T012 in small commits (`feat: add session token and password helpers`, `feat: resolve session user in route wrapper`, `test: add auth fixtures`).
 
 **Checkpoint**: sessions can be created and resolved, and `user` routes really check them. No login endpoint yet.
 
@@ -125,12 +125,12 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Tests for User Story 1 (write first; they must FAIL before T015–T018)
 
-- [ ] T013 [P] [US1] `tests/unit/features/auth/auth.schemas.test.ts`:
+- [x] T013 [P] [US1] `tests/unit/features/auth/auth.schemas.test.ts`:
   - `" Ali@X.test "` → `"ali@x.test"`;
   - a malformed email, an empty email, an empty password, a 255-char email and a 129-char password each fail with a field error under the right key;
   - the password is not trimmed;
   - extra keys (`companyId`, `role`) are dropped from the parsed result.
-- [ ] T014 [P] [US1] `tests/integration/features/auth/login.test.ts`, success and basic-failure cases. Setup: a company and a user from `makeUserWithPassword`. Cases:
+- [x] T014 [P] [US1] `tests/integration/features/auth/login.test.ts`, success and basic-failure cases. Setup: a company and a user from `makeUserWithPassword`. Cases:
   - correct login → 200; `{ data: { name, role, companyName } }` exactly, with no `token`, `id`, `userId`, `companyId` or `passwordHash`;
   - `Set-Cookie` has `aqar_session=<43 chars>`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, `Max-Age=604800`;
   - exactly one new session whose `id` = sha256(cookie token), and whose `expiresAt` is 7 days ± 5 s from now;
@@ -141,29 +141,29 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Create `src/features/auth/auth.schemas.ts`:
+- [x] T015 [US1] Create `src/features/auth/auth.schemas.ts`:
   - `authFields` is a `z.object` with `email` (string → trim → lowercase → email format, max 254, Arabic message "أدخل بريدًا إلكترونيًا صحيحًا") and `password` (string, min 1 "أدخل كلمة المرور", max 128 "كلمة المرور طويلة جدًا").
   - `loginSchema = authFields.pick({ email: true, password: true })`. Never `.omit()`.
   - The schema must work with `zodResolver` in the client: no server imports.
 
   Create `src/features/auth/auth.types.ts` with `LoginInput = z.infer<typeof loginSchema>`.
-- [ ] T016 [US1] Create `src/features/auth/server/auth.repository.ts` with `findUserByEmail(email, tx)`. It selects `id`, `name`, `role`, `companyId`, `passwordHash` and company `name`, and takes no `companyId` (exception E1, comment).
-- [ ] T017 [US1] Create `src/features/auth/server/auth.service.ts` with `login(input: LoginInput, now = new Date())`:
+- [x] T016 [US1] Create `src/features/auth/server/auth.repository.ts` with `findUserByEmail(email, tx)`. It selects `id`, `name`, `role`, `companyId`, `passwordHash` and company `name`, and takes no `companyId` (exception E1, comment).
+- [x] T017 [US1] Create `src/features/auth/server/auth.service.ts` with `login(input: LoginInput, now = new Date())`:
   - `withTransaction`: find the user; `ok = user ? await verifyPassword(user.passwordHash, input.password) : (await verifyPassword(DUMMY_PASSWORD_HASH, input.password), false)`; if ok, create a session (`hashSessionToken(token)`, `sessionExpiresAt(now)`) with `tx`; return a result object.
   - After the transaction: not ok → `throw new AppError("INVALID_CREDENTIALS")`. Ok → return `{ token, user: ShellUser }`.
   - US2 extends this function. Keep the "decide inside the transaction, throw outside" shape.
-- [ ] T018 [US1] Create `src/features/auth/server/auth.routes.ts` with `loginHandler = handleRoute({ auth: "public", handler })`:
+- [x] T018 [US1] Create `src/features/auth/server/auth.routes.ts` with `loginHandler = handleRoute({ auth: "public", handler })`:
   - the handler does `loginSchema.parse(await readJson(req))` → `login()` → `Response.json({ data: user }, { headers: { "Set-Cookie": buildSessionCookie(token) } })`.
 
   Create `src/app/api/auth/login/route.ts` containing only `export { loginHandler as POST } from "@/features/auth/server/auth.routes";`. Run T014: it must pass.
-- [ ] T019 [P] [US1] Create `src/shared/components/current-user/`:
+- [x] T019 [P] [US1] Create `src/shared/components/current-user/`:
   - `types.ts`: `ShellUser`;
   - `current-user.tsx` (`"use client"`): `CurrentUserProvider({ user, children })` and the context;
   - `use-current-user.ts`: throws if used outside the provider;
   - `index.ts`.
 
   Create `src/shared/components/home-welcome/` (`home-welcome.tsx`, `index.ts`): "مرحبًا، {name}" with `ROLE_LABELS[role]` and the company name. No statistics.
-- [ ] T020 [US1] Create `src/features/auth/client/login-form/` per contracts/ui-shell.md "Login page":
+- [x] T020 [US1] Create `src/features/auth/client/login-form/` per contracts/ui-shell.md "Login page":
   - `use-login-form.ts`: RHF + `zodResolver(loginSchema)` + `useMutation` → `fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body })`.
     - On success: `getQueryClient().clear()`, `router.replace("/")`, `router.refresh()`.
     - `VALIDATION_ERROR` → `setError` per field.
@@ -171,8 +171,8 @@ description: "Task list for phase 2: login, logout and app shell"
     - Anything else or a network error → "تعذر تسجيل الدخول، حاول مرة أخرى".
   - `login-form.tsx`: shadcn `Card`, `Label`, `Input` (email with `dir="ltr"`, `autoComplete="username"`; password with `autoComplete="current-password"`) and `Button`. The button is disabled with "جارٍ تسجيل الدخول…" while pending. Field errors under the fields (`aria-invalid`, `aria-describedby`); the root error in `role="alert"`.
   - `index.ts`.
-- [ ] T021 [US1] Create `src/app/login/page.tsx`: `const user = await getCurrentUser(); if (user) redirect("/");`, then a centred page rendering `<LoginForm />`. Comment: this page is exception E2 (no `requireUser()`).
-- [ ] T022 [US1] Move the home page into the authenticated group:
+- [x] T021 [US1] Create `src/app/login/page.tsx`: `const user = await getCurrentUser(); if (user) redirect("/");`, then a centred page rendering `<LoginForm />`. Comment: this page is exception E2 (no `requireUser()`).
+- [x] T022 [US1] Move the home page into the authenticated group:
   - Delete `src/app/page.tsx`.
   - Create `src/app/(app)/layout.tsx`: `const user = await requireUser();` → `<CurrentUserProvider user={toShellUser(user)}>{children}</CurrentUserProvider>`. US6 adds the shell.
   - Create `src/app/(app)/page.tsx`: `const user = await requireUser();` → `<HomeWelcome user={toShellUser(user)} />`.
@@ -191,10 +191,10 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Tests for User Story 2 (write first; they must FAIL before T027–T030)
 
-- [ ] T024 [P] [US2] In `tests/integration/prisma/schema-constraints.test.ts`, add:
+- [x] T024 [P] [US2] In `tests/integration/prisma/schema-constraints.test.ts`, add:
   - a `LOGIN_FAILED` row with `meta.reason = "bad"` or with no reason → `expectDbError` `23514` with constraint `audit_logs_login_failed_reason_check`;
   - positive controls `invalid_credentials` and `locked` insert fine.
-- [ ] T025 [US2] Extend `tests/integration/features/auth/login.test.ts`:
+- [x] T025 [US2] Extend `tests/integration/features/auth/login.test.ts`:
   - an unknown email and a wrong password give bodies that are `toEqual` each other, with the same status (401);
   - each writes exactly one `LOGIN_FAILED` row with `meta = { email: <normalized>, reason: "invalid_credentials" }`. The known email row has `userId` + `companyId`; the unknown one has both `null`;
   - invalid input (400) writes **no** row;
@@ -202,7 +202,7 @@ description: "Task list for phase 2: login, logout and app shell"
   - a successful login writes no row;
   - tenant (constitution I): users in companies A and B each fail once; each row carries its own user's `companyId`, never the other company's;
   - server error (FR-030, SC-006, edge case "database down"): in its own file `tests/integration/features/auth/login-errors.test.ts` (module mocks apply to the whole file), `vi.mock` the auth repository so `findUserByEmail` rejects (ESM exports cannot be `vi.spyOn`-ed), and `vi.mock("@/server/logger")` to return `createLogger(<in-memory stream>)`. Expect 500 `INTERNAL_ERROR` with the generic message, no `Set-Cookie`, no session, and the captured log contains neither the submitted password nor any `aqar_session` value. This case may pass before T027–T030; it guards against regressions.
-- [ ] T026 [US2] Create `tests/integration/features/auth/login-lock.test.ts`. Each case uses its own fresh user/email. Cases:
+- [x] T026 [US2] Create `tests/integration/features/auth/login-lock.test.ts`. Each case uses its own fresh user/email. Cases:
   1. 4 wrong → the correct password → 200.
   2. 5 wrong → the 6th with the **correct** password → 401 `INVALID_CREDENTIALS`, no new session, the last row has `reason: "locked"`. Rows: exactly 5 `invalid_credentials` + 1 `locked`.
   3. Locked retries do not extend the lock:
@@ -219,14 +219,14 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Run `npx prisma migrate dev --name login_failed_reason_check --create-only`. Put exactly the SQL from data-model.md "New migration" in the new `migration.sql`, under `-- Raw SQL: Prisma cannot express CHECK constraints`. Apply it with `npx prisma migrate dev`. T024 must now pass. Commit `feat: check failed-login audit reason in the database`.
-- [ ] T028 [P] [US2] Create `src/server/audit/audit.repository.ts`:
+- [x] T027 [US2] Run `npx prisma migrate dev --name login_failed_reason_check --create-only`. Put exactly the SQL from data-model.md "New migration" in the new `migration.sql`, under `-- Raw SQL: Prisma cannot express CHECK constraints`. Apply it with `npx prisma migrate dev`. T024 must now pass. Commit `feat: check failed-login audit reason in the database`.
+- [x] T028 [P] [US2] Create `src/server/audit/audit.repository.ts`:
   - `insertAuditLog({ action, companyId, userId, entityId, meta, createdAt }, tx)`;
   - `countRecentLoginFailures(email, since, tx)`: `$queryRaw` with exactly `action = 'LOGIN_FAILED' AND meta->>'email' = ${email} AND meta->>'reason' = 'invalid_credentials' AND created_at > ${since}`, returning a `number` (convert the `bigint` count). The expression matches the phase 1 index (research R5).
 
   Comment: keyed by email, no `companyId` (exception E1).
-- [ ] T029 [US2] Add `lockLoginEmail(email, tx)` to `src/features/auth/server/auth.repository.ts`: `` tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${email}, 0))` `` (research R4; `$executeRaw` because the function returns `void`).
-- [ ] T030 [US2] Extend `login()` in `src/features/auth/server/auth.service.ts` to the full flow (research R4). Constants: `LOGIN_LOCK_THRESHOLD = 5`, `LOGIN_LOCK_WINDOW_MS = 15 min`, `LOGIN_FAILURE_REASON = { invalidCredentials: "invalid_credentials", locked: "locked" } as const`. Inside one transaction:
+- [x] T029 [US2] Add `lockLoginEmail(email, tx)` to `src/features/auth/server/auth.repository.ts`: `` tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${email}, 0))` `` (research R4; `$executeRaw` because the function returns `void`).
+- [x] T030 [US2] Extend `login()` in `src/features/auth/server/auth.service.ts` to the full flow (research R4). Constants: `LOGIN_LOCK_THRESHOLD = 5`, `LOGIN_LOCK_WINDOW_MS = 15 min`, `LOGIN_FAILURE_REASON = { invalidCredentials: "invalid_credentials", locked: "locked" } as const`. Inside one transaction:
   1. `lockLoginEmail`.
   2. `failures = countRecentLoginFailures(email, now − window)`.
   3. `findUserByEmail`.
@@ -248,15 +248,15 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Tests for User Story 4 (write first; they must FAIL before T033)
 
-- [ ] T031 [P] [US4] Create `tests/integration/server/auth/session-gate.test.ts` for `GET /api/auth/me`:
+- [x] T031 [P] [US4] Create `tests/integration/server/auth/session-gate.test.ts` for `GET /api/auth/me`:
   - a valid session from `makeSession(userId, now + 1 day)` → 200 `{ data: { name, role, companyName } }`;
   - no cookie, `aqar_session=<random 43 chars>`, `aqar_session=` (empty), and an expired session from `makeSession(userId, now − 1 s)` → each 401, with bodies `toEqual` each other (`UNAUTHORIZED`, "يجب تسجيل الدخول أولاً") and no `data`;
   - tenant (constitution I): users in companies A and B, each with a session. `me` with A's token returns A's company name and never B's, and the same for B.
-- [ ] T032 [P] [US4] Add a case to `tests/unit/architecture/conventions.test.ts`: every `page.tsx` under `src/app/` except `src/app/login/page.tsx` contains `requireUser(`, and `src/app/login/page.tsx` contains `getCurrentUser(`. It must fail if a new page forgets the check.
+- [x] T032 [P] [US4] Add a case to `tests/unit/architecture/conventions.test.ts`: every `page.tsx` under `src/app/` except `src/app/login/page.tsx` contains `requireUser(`, and `src/app/login/page.tsx` contains `getCurrentUser(`. It must fail if a new page forgets the check.
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] Add `me(user: SessionUser): ShellUser` (via `toShellUser`) to `auth.service.ts`, and `meHandler = handleRoute({ auth: "user", handler: (req, ctx, user) => ({ data: me(user) }) })` to `auth.routes.ts`. Create `src/app/api/auth/me/route.ts` that re-exports it as `GET`. T031 and T032 must pass. Commit `feat: add current-user endpoint behind the session gate`.
+- [x] T033 [US4] Add `me(user: SessionUser): ShellUser` (via `toShellUser`) to `auth.service.ts`, and `meHandler = handleRoute({ auth: "user", handler: (req, ctx, user) => ({ data: me(user) }) })` to `auth.routes.ts`. Create `src/app/api/auth/me/route.ts` that re-exports it as `GET`. T031 and T032 must pass. Commit `feat: add current-user endpoint behind the session gate`.
 
 **Checkpoint**: the session gate is proven for API routes and enforced for pages.
 
@@ -270,7 +270,7 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Tests for User Story 3 (write first; they must FAIL before T035)
 
-- [ ] T034 [P] [US3] Create `tests/integration/features/auth/logout.test.ts`:
+- [x] T034 [P] [US3] Create `tests/integration/features/auth/logout.test.ts`:
   1. Replay:
      - log in through the real login handler and take the raw token from `Set-Cookie`;
      - `me` with it → 200;
@@ -283,8 +283,8 @@ description: "Task list for phase 2: login, logout and app shell"
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Add `logout(token: string | null)` to `auth.service.ts`: if there is a token, `deleteSession(hashSessionToken(token))`. Add `logoutHandler = handleRoute({ auth: "public", … })` to `auth.routes.ts`: read the token with `readSessionToken(req.headers.get("cookie"))`, call `logout`, and return `{ data: { ok: true } }` with `Set-Cookie: buildClearedSessionCookie()`. Create `src/app/api/auth/logout/route.ts` that re-exports it as `POST`. T034 must pass.
-- [ ] T036 [US3] Create `src/shared/components/logout-button/` (`logout-button.tsx`, `use-logout-button.ts`, `index.ts`):
+- [x] T035 [US3] Add `logout(token: string | null)` to `auth.service.ts`: if there is a token, `deleteSession(hashSessionToken(token))`. Add `logoutHandler = handleRoute({ auth: "public", … })` to `auth.routes.ts`: read the token with `readSessionToken(req.headers.get("cookie"))`, call `logout`, and return `{ data: { ok: true } }` with `Set-Cookie: buildClearedSessionCookie()`. Create `src/app/api/auth/logout/route.ts` that re-exports it as `POST`. T034 must pass.
+- [x] T036 [US3] Create `src/shared/components/logout-button/` (`logout-button.tsx`, `use-logout-button.ts`, `index.ts`):
   - `useMutation` → `fetch("/api/auth/logout", { method: "POST" })`;
   - on success, `getQueryClient().clear()`, `router.replace("/login")`, `router.refresh()`;
   - on failure, `toast.error("تعذر تسجيل الخروج، حاول مرة أخرى")`;
@@ -302,7 +302,7 @@ description: "Task list for phase 2: login, logout and app shell"
 
 **Independent Test**: a POST with a foreign `Origin` → 403 and nothing changes; the same POST with `APP_ORIGIN` succeeds (quickstart §1, §3).
 
-- [ ] T037 [US5] Create `tests/integration/features/auth/origin.test.ts`:
+- [x] T037 [US5] Create `tests/integration/features/auth/origin.test.ts`:
   1. Login with `Origin: https://evil.test` and correct credentials → 403 `INVALID_ORIGIN`, no `Set-Cookie`, no new session, no new audit row.
   2. Login with no `Origin` (`origin: null`) → 403, same checks.
   3. Login with `Origin: http://localhost:3000.evil.test` and with `http://localhost:3001` → 403 (exact match, no prefix match).
