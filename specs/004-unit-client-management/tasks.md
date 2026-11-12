@@ -160,7 +160,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] Create `src/features/units/server/units.repository.ts` with:
+- [x] T028 [US1] Create `src/features/units/server/units.repository.ts` with:
   - `releaseExpired(companyId, tx?)`: the one `$executeRaw` tagged-template UPDATE from research R2, using DB `now()`. Add `::uuid` on `${companyId}` if the T026 expiry tests fail with `uuid = text`.
   - `findUnits(companyId, query, tx?)`: a `where` built from status and the price range (`gte`/`lte` as `BigInt`); `orderBy` per research R12, always ending in `{ id: "asc" }`; `skip`/`take` from `toSkip`.
   - `countUnits(companyId, query, tx?)`: the same `where`.
@@ -228,7 +228,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Implementation for User Story 2
 
-- [ ] T042 [US2] Add `insertUnit(companyId, input: UnitInput, tx?)` to `src/features/units/server/units.repository.ts`. It runs `create` with `{ ...input, price: BigInt(input.price), companyId }` and never takes `status`.
+- [x] T042 [US2] Add `insertUnit(companyId, input: UnitInput, tx?)` to `src/features/units/server/units.repository.ts`. It runs `create` with `{ ...input, price: BigInt(input.price), companyId }` and never takes `status`.
 - [ ] T043 [US2] Add `createUnit(user, input)` to `src/features/units/server/units.service.ts`:
   - `user.role !== "MANAGER"` → `FORBIDDEN`;
   - `try insertUnit`;
@@ -278,7 +278,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Implementation for User Story 3
 
-- [ ] T051 [US3] Add two functions to `src/features/units/server/units.repository.ts`:
+- [x] T051 [US3] Add two functions to `src/features/units/server/units.repository.ts`:
   - `updateUnitDetails(companyId, id, fields: Pick<UnitInput, "projectName" | "number" | "type" | "area" | "rooms">, tx?)`: `updateMany({ where: { id, companyId }, data: { projectName, number, type, area, rooms } })` → count.
   - `updateUnitPriceIfAvailable(companyId, id, input: UnitInput, oldPrice: bigint, tx?)`: `updateMany({ where: { id, companyId, status: "AVAILABLE", price: oldPrice }, data: { ...fields, price: BigInt(input.price) } })` → count.
 - [ ] T052 [US3] Add `updateUnit(user, id, input)` to `src/features/units/server/units.service.ts`, following research R1 exactly. Run `withTransaction(async (tx) => …)`:
@@ -318,14 +318,14 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T057 [P] [US4] Create `src/features/clients/clients.schemas.ts`:
+- [x] T057 [P] [US4] Create `src/features/clients/clients.schemas.ts`:
   - `clientSchema` with fields defined once from data-model.md › Client: name trimmed 1–100; phone trimmed `^\+?[0-9][0-9 -]{5,18}$`; notes trimmed max 2000, with `""` → `null`;
   - `clientInputSchema = clientSchema.pick({ name, phone, notes })`;
   - `clientListQuerySchema = z.object({ ...paginationFields })`;
   - `clientIdSchema = z.uuid()`.
 
   Create `src/features/clients/clients.types.ts` (`ClientDto`, `ClientInput`, `ClientListQuery`, `ClientPage`) and `src/features/clients/clients.keys.ts` (`clientKeys.all`, `list`, `detail`).
-- [ ] T058 [P] [US4] Write `tests/unit/features/clients/clients.schemas.test.ts`: "accepts +966 50-000-0000", "accepts 0500000000", "rejects letters", "rejects 6 and 21 chars", "notes over 2000 rejected", "empty notes → null", "keeps line breaks in notes", "input strips salesRepId and companyId", "rejects pageSize 51", "rejects page 0".
+- [x] T058 [P] [US4] Write `tests/unit/features/clients/clients.schemas.test.ts`: "accepts +966 50-000-0000", "accepts 0500000000", "rejects letters", "rejects 6 and 21 chars", "notes over 2000 rejected", "empty notes → null", "keeps line breaks in notes", "input strips salesRepId and companyId", "rejects pageSize 51", "rejects page 0".
 - [ ] T059 [US4] Write `tests/integration/features/clients/server/clients.service.test.ts`, using `makeTwoCompanies`:
   - **"create"**: "owner and company come from the session" (input parsed with a foreign `salesRepId`/`companyId`), "duplicate phone across reps is accepted".
   - **"ownership"**: "rep list shows only own clients", "rep reading another rep's client → NOT_FOUND", "rep edits own client", "rep editing another rep's client → NOT_FOUND, unchanged".
@@ -335,7 +335,7 @@ description: "Task list for phase 3: units and clients"
 
 ### Implementation for User Story 4
 
-- [ ] T061 [US4] Create `src/features/clients/server/clients.repository.ts`. Every function selects `salesRep: { select: { id, name } }`:
+- [x] T061 [US4] Create `src/features/clients/server/clients.repository.ts`. Every function selects `salesRep: { select: { id, name } }`:
   - `findClients(companyId, { salesRepId? }, page, pageSize, tx?)`: `orderBy [{ name: "asc" }, { id: "asc" }]`;
   - `countClients(companyId, { salesRepId? }, tx?)`;
   - `findClient(companyId, id, salesRepId?, tx?)`;
