@@ -55,10 +55,11 @@ Append-only (phase 1 triggers). One row per failed login with valid input.
 
 ```sql
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_login_failed_reason_check"
-  CHECK ("action" <> 'LOGIN_FAILED' OR "meta" ->> 'reason' IN ('invalid_credentials', 'locked'));
+  CHECK ("action" <> 'LOGIN_FAILED' OR coalesce("meta" ->> 'reason', '') IN ('invalid_credentials', 'locked'));
 ```
 
 - Created with `prisma migrate dev --create-only`, with the SQL added by hand. Prisma cannot express a CHECK.
+- `coalesce` makes a missing reason fail too: without it, `NULL IN (...)` is NULL, which a CHECK accepts.
 - Why: the reason decides the lock. A wrong value written by code would silently remove the limit (research R7).
 - Safe on existing data: the seed writes no audit rows, and the integration schema is rebuilt each run.
 
