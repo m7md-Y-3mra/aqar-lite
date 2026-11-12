@@ -10,9 +10,10 @@ const items: NavItem[] = [
 ];
 
 describe("navigation", () => {
-  it.each(ROLES)("shows only Home for %s in the configured navigation", (role) => {
+  it.each(ROLES)("shows Home and units for %s in the configured navigation", (role) => {
     expect(navItemsFor(role)).toEqual([
       { href: "/", label: "الرئيسية", roles: ROLES },
+      { href: "/units", label: "الوحدات", roles: ROLES },
     ]);
     expect(navItemsFor(role)).toEqual(filterNavItems(NAV_ITEMS, role));
   });

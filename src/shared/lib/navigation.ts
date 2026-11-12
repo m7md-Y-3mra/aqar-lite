@@ -8,7 +8,7 @@ export type NavItem = {
 
 /* Navigation map: add each item only when its page exists.
  * الرئيسية | /             | MANAGER, SALES, ACCOUNTANT
- * الوحدات  | /units        | MANAGER, SALES
+ * الوحدات  | /units        | MANAGER, SALES, ACCOUNTANT
  * العملاء  | /clients      | MANAGER, SALES
  * الحجوزات | /reservations | MANAGER, SALES
  * العقود   | /contracts    | MANAGER, SALES, ACCOUNTANT
@@ -17,6 +17,7 @@ export type NavItem = {
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "الرئيسية", roles: ROLES },
+  { href: "/units", label: "الوحدات", roles: ROLES },
 ];
 
 export function filterNavItems(items: readonly NavItem[], role: Role): NavItem[] {
