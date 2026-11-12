@@ -173,7 +173,10 @@ src/app/api/reservations/options/route.ts new  export { GET }
 tests/unit/features/reservations/reservations.schemas.test.ts                   new
 tests/unit/shared/lib/dates.test.ts                                             new
 tests/unit/shared/lib/navigation.test.ts                                        change  reservations item: MANAGER + SALES, not ACCOUNTANT
-tests/integration/support/db-fixtures.ts                                        change  makeReservation sets reservedAt = expiresAt − 72h
+tests/integration/support/db-fixtures.ts                                        change  makeReservation({ …, expiresAt? }) sets reservedAt = expiresAt − 72h (R3 test impact)
+tests/integration/prisma/schema-constraints.test.ts                             change  no second overlapping reservation on a chain's unit; raw INSERTs use a future expires_at (R3 test impact)
+tests/integration/features/units/server/units.repository.test.ts                P3 change  expired fixtures via expiresAt param, no overlapping windows; releaseExpired(companyId, tx); "expiresAt equals now" case
+tests/integration/features/reservations/server/reservations.repository.test.ts  new     "active" boundary at exactly now
 tests/integration/support/pg-locks.ts                                           new     waitForLockWait(match, timeoutMs): polls pg_stat_activity for wait_event_type = 'Lock'
 tests/integration/prisma/reservation-overlap-guard.test.ts                      new
 tests/integration/features/reservations/server/reservations.service.test.ts     new
@@ -201,7 +204,9 @@ README.md        change  Assumptions (spec), Technical decisions (R1, R2, R3, R4
   2. `withTransaction`: `releaseExpired` → `now = dbNow(tx)` → find + count (SALES: `salesRepId = userId`) → `{ …page, asOf }`. ([R5](./research.md#r5-active-and-the-reservations-list))
 - **`getReserveOptions(user, unitId)`**:
   1. Not SALES → `FORBIDDEN`.
-  2. `withTransaction`: `releaseExpired` → `getUnit` (404) → `listClients(user, { page: 1, pageSize: 50 })` → `{ unit, clients }`. ([R8](./research.md#r8-data-for-the-dialog-get-apireservationsoptionsunitid))
+  2. `getUnit(user, unitId)`: phase 3's own release-and-read transaction; 404 for another company.
+  3. `listClients(user, { page: 1, pageSize: 50 })` → `{ unit, clients }`.
+  4. **No outer transaction**: services never nest (R2, "No nested transactions"). ([R8](./research.md#r8-data-for-the-dialog-get-apireservationsoptionsunitid))
 
 The route handlers only parse (body: `readJson` + `reserveInputSchema`; query: `toQueryInput` + schema), call the service and return `{ data }` (201 for POST).
 
@@ -234,7 +239,7 @@ The route handlers only parse (body: `readJson` + `reserveInputSchema`; query: `
 | FR-007 other company → 404 | `svc` › "tenant isolation › unit of company B → NOT_FOUND, B's unit unchanged", "tenant isolation › client of company B → NOT_FOUND" | Auto |
 | FR-008 all-or-nothing | `svc` › "atomic › insert failure rolls back the unit to AVAILABLE" (the exclusion guard is triggered by a pre-inserted overlapping row on an AVAILABLE unit: `UNIT_NOT_AVAILABLE`, unit still AVAILABLE); every refusal test asserts the status is unchanged | Auto |
 | FR-009 validation 400 + field errors | `reservations.schemas.test.ts` › "rejects missing / non-UUID unitId and clientId"; `routes` › "400 with fieldErrors.unitId and fieldErrors.clientId" | Auto |
-| FR-010 active = future expiry and no approved contract | `svc` › "list › excludes expired", "list › expiry exactly now is excluded" (expires_at set to the transaction's `now()`), "list › excludes a reservation whose contract is approved", "list › includes one with a draft contract" (contract rows from `makeContract`) | Auto |
+| FR-010 active = future expiry and no approved contract | `svc` › "list › excludes expired", "list › excludes a reservation whose contract is approved", "list › includes one with a draft contract" (contract rows from `makeContract`); `tests/integration/features/reservations/server/reservations.repository.test.ts` › "findActiveReservations excludes a row whose expiresAt equals now" (passes `now` = the fixture's `expiresAt`); `units.repository.test.ts` (P3) › "releaseExpired frees a unit whose expiresAt equals the transaction now" (fixture `expiresAt` read back from `SELECT now()` inside the same transaction) | Auto |
 | FR-011 expired → unit available, no manual action (user "done when" 2; SC-003) | `svc` › "expiry › expired reservation frees the unit and another rep can reserve it" (fixture `expiresAt` in the past → `listUnits` shows AVAILABLE → rep2 `reserveUnit` succeeds); `units.service.test.ts` (P3) › existing "expiry › …" tests still pass with the new release | Auto |
 | FR-012 sold never returns | `units.service.test.ts` (P3) › "expiry › SOLD with expired reservation stays SOLD" (kept) | Auto |
 | FR-013 expired kept as history | `svc` › "expiry › the expired reservation row still exists after the unit is re-reserved" | Auto |
@@ -243,7 +248,7 @@ The route handlers only parse (body: `readJson` + `reserveInputSchema`; query: `
 | FR-016 fields shown; Riyadh time | `svc` › "list › DTO has unit, client, salesRep, expiresAt"; `tests/unit/shared/lib/dates.test.ts` › "formats 2026-11-12T21:30Z as 2026/11/13 00:30 (Riyadh)", "time left 71 h 59 m", "less than a minute" | Auto |
 | FR-017 paging, order, 400 | `svc` › "list › soonest expiry first, id breaks ties, pages never repeat or skip"; `reservations.schemas.test.ts` › "pageSize 51 → error", "defaults 1 / 20" | Auto |
 | FR-018 no other company in any list (SC-005) | `svc` › "tenant isolation › manager of A never sees B's reservations", "tenant isolation › rep of A never sees B's reservations" | Auto |
-| FR-019 reserve action: SALES, AVAILABLE rows, own clients, no-clients message | `svc` › "options › clients are only the rep's own", "options › MANAGER and ACCOUNTANT → FORBIDDEN", "options › unit of company B → NOT_FOUND"; quickstart §2 | Auto + Manual |
+| FR-019 reserve action: SALES, AVAILABLE rows, own clients, no-clients message | `svc` › "options › clients are only the rep's own", "options › MANAGER and ACCOUNTANT → FORBIDDEN", "options › unit of company B → NOT_FOUND", "options › answers within 2 s while another unit of the company has an expired reservation" (guards against the nested-transaction deadlock, R2); quickstart §2 | Auto + Manual |
 | FR-019a units list shows expiry, never client/rep | `units.service.test.ts` (P3) › "list › reserved unit has reservedUntil = active expiry", "list › available unit has reservedUntil null", "list › DTO has no client or salesRep key"; quickstart §2 | Auto + Manual |
 | FR-020 loading, no double submit, 409 at top, status refresh | quickstart §3; `tests/unit/shared/lib/form-errors.test.ts` (P3) › "maps 409 to root" (reused) | Manual + Auto |
 | FR-021 lists update without reload | quickstart §2 (invalidation) | Manual |

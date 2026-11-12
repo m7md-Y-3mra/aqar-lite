@@ -73,6 +73,7 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 - The isolation level is READ COMMITTED, which is the Postgres and Prisma default. Under REPEATABLE READ, statement 2 would reuse the transaction's first snapshot and the fix would not work.
 - **Lock order**: any transaction that calls `releaseExpired` does so **before** it locks or updates a unit row. In this phase that is reserve; in phase 3 it is the price edit. Phase 5 approval must follow the same rule: release first, then lock the contract or unit. If it did the opposite, two transactions could wait on each other.
 - `now()` is the transaction's start time, so both statements and the reserve insert use one clock (R4).
+- **No nested transactions**: inside `withTransaction`, call only repository functions that take `tx`, never another service function. Prisma interactive transactions do not nest, so a service that opens its own transaction runs on a second connection. If the outer transaction holds a unit lock from `releaseExpired`, the inner `FOR UPDATE` waits on it while the outer waits on the inner. Postgres cannot detect that cycle, so it hangs until Prisma's timeout. `getReserveOptions` (R8) follows this rule.
 
 **Alternatives considered**:
 - Keep the single statement. Rejected: it is wrong under concurrency (evidence above).
@@ -111,7 +112,15 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 - The integration-test database reset must recreate the extension (the migration uses `IF NOT EXISTS`).
 - If either fails and cannot be fixed in 15 minutes, drop steps 1, 3 and 4 and keep only the code guard. Write the guard into the README "Not done" with this design.
 
-**Test fixtures**: `makeReservation` in `tests/integration/support/db-fixtures.ts` must set `reservedAt = expiresAt − 72 h`. Otherwise a fixture with a past `expiresAt` breaks the new check. Tests must never create two overlapping reservations for one unit.
+**Test impact** (checked on this branch and on both sibling branches):
+- `tests/integration/support/db-fixtures.ts › makeReservation` gains an optional `expiresAt`, and sets `reservedAt = expiresAt − 72 h`. Tests that need an expired reservation pass a past `expiresAt` instead of updating `expiresAt` afterwards. An update that moves only `expiresAt` before `reserved_at` breaks the `CHECK`.
+- `tests/integration/prisma/schema-constraints.test.ts`:
+  - Several cases call `makeReservation` on the unit that `makeContractChain` already reserved (around lines 206, 230, 254, 269, 376, 427, 457). That second, overlapping reservation is refused by the exclusion constraint. Give those cases their own unit, or an expired window.
+  - The raw `INSERT`s around lines 198, 222 and 246 set `expires_at = new Date()` and expect a foreign-key error (`23503`). `CHECK`s run before foreign keys, so these could now fail with `23514` instead. Give them a future `expires_at`.
+- Phase 3's `tests/integration/features/units/server/units.repository.test.ts`:
+  - `reservedUnit(expired)` and "active reservation stays RESERVED" update `expiresAt` into the past. The latter also creates a second reservation that overlaps an active one.
+  - These tests move to the fixture's `expiresAt` parameter, with non-overlapping windows. They also call `releaseExpired` with a required `tx`, and can no longer expect a returned row count (two statements).
+- No test may create two overlapping reservations for one unit, except the overlap-guard test, which expects the refusal.
 
 **Alternatives considered**: code only (rejected, see above); a trigger that counts active reservations (it reads `now()` and has the same snapshot problem as R2).
 
@@ -178,7 +187,7 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 
 **Decision**: `getReserveOptions(user, unitId)`:
 1. `SALES` only (403).
-2. `withTransaction`: `releaseExpired`, then `getUnit` through `units/server/index.ts` (404 for another company).
+2. `getUnit(user, unitId)` through `units/server/index.ts`. It runs its own release-and-read transaction and gives 404 for another company. There is **no outer transaction** here (see the nesting rule in R2).
 3. Load the rep's own clients through `clients/server/index.ts › listClients(user, { page: 1, pageSize: 50 })`.
 4. Return `{ unit: { id, projectName, number, status }, clients: [{ id, name }] }`.
 
