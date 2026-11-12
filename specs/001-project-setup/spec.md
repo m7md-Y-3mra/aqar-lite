@@ -10,6 +10,13 @@
 
 > **Note on this phase**: The "users" of this phase are developers and reviewers (the hiring team), not end users of Aqar Lite. For that reason the developer-facing commands (`docker compose up`, `npm run …`) are the acceptance surface of this spec and appear in its scenarios and requirements. Tool and library choices are left to the plan.
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: How does `docker compose up` run the app: production build or development server? → A: Production build (the image builds the app, then starts it). Developers use `npm run dev` locally for hot reload.
+- Q: How does the integration test database get its schema? → A: `npm run test:integration` applies all migrations to the test database itself before any test runs. No separate manual step.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - One-command start on a clean machine (Priority: P1)
@@ -43,7 +50,7 @@ A developer starting the next phase runs `npm run lint`, `npm run typecheck`, `n
 1. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run lint`, **Then** it passes with no errors.
 2. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run typecheck`, **Then** it passes under strict type checking.
 3. **Given** a fresh clone with dependencies installed, **When** the developer runs `npm run test`, **Then** the sample unit test runs and passes without needing a database.
-4. **Given** the database container is running, **When** the developer runs `npm run test:integration`, **Then** the sample integration test connects to a dedicated test database (not the app database), runs a real query, and passes.
+4. **Given** the database container is running, **When** the developer runs `npm run test:integration`, **Then** the command first brings the dedicated test database (not the app database) up to the latest migrations, and the sample integration test connects to it, runs a real query, and passes.
 5. **Given** the database container is not running, **When** the developer runs `npm run test:integration`, **Then** it fails with a message that says the test database is not reachable.
 
 ---
@@ -103,6 +110,7 @@ A developer opens a pull request to `main`. Lint and typecheck run automatically
 ### Edge Cases
 
 - A clean clone has no local environment file: `docker compose up` must still start, because the compose setup supplies safe, non-secret development values. The "refuse to start" rule applies when a variable is truly absent or invalid in the environment the app actually receives.
+- Building the production image must not need runtime secrets: settings are checked when the app starts, not when the image is built, and no secret is baked into the image.
 - The database has no schema yet in this phase: the startup sequence (prepare database, then start the app) must succeed with zero migrations and no seed data, and keep working when later phases add them.
 - The app container starts before the database accepts connections: the app waits for a healthy database instead of crashing.
 - Running `docker compose up` a second time on existing volumes: no errors, no duplicate setup.
@@ -117,7 +125,7 @@ A developer opens a pull request to `main`. Lint and typecheck run automatically
 
 **Start and run**
 
-- **FR-001**: Running `docker compose up` on a clean clone MUST start the database and the app with no other command, no file to copy and no manual edit.
+- **FR-001**: Running `docker compose up` on a clean clone MUST start the database and the app with no other command, no file to copy and no manual edit. The app container MUST run a production build of the app (built inside the image, then started), not the development server.
 - **FR-002**: The app MUST start only after the database is healthy, MUST apply any pending database migrations before it starts serving, and MUST run the seed only when the database is empty (the seed may be empty in this phase).
 - **FR-003**: The home page MUST be an empty page with Arabic text, with the document language set to Arabic and the direction set to right-to-left, and it MUST work on both mobile and desktop widths.
 - **FR-004**: The app MUST send basic HTTP security headers on every response (content-type sniffing protection, framing protection, referrer policy and a simple content security policy).
@@ -146,7 +154,7 @@ A developer opens a pull request to `main`. Lint and typecheck run automatically
 - **FR-015**: The project MUST provide the commands `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `test:integration`, `db:migrate` and `db:seed`.
 - **FR-016**: `npm run typecheck` MUST use strict type checking and pass.
 - **FR-017**: `npm run test` MUST run unit tests only, need no database, and include one passing sample test.
-- **FR-018**: `npm run test:integration` MUST run against a real PostgreSQL test database that is separate from the app database and is created automatically when the database container first starts. It MUST NOT mock the database. It MUST include one passing sample test that runs a real query.
+- **FR-018**: `npm run test:integration` MUST run against a real PostgreSQL test database that is separate from the app database and is created automatically when the database container first starts. Before any test runs, the command MUST apply all migrations to the test database itself, with no separate manual step. It MUST NOT mock the database. It MUST include one passing sample test that runs a real query.
 - **FR-019**: Test files MUST live in the unit and integration test folders and mirror the source paths.
 
 **Continuous integration**
