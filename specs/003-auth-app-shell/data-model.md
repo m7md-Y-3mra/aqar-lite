@@ -66,12 +66,12 @@ ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_login_failed_reason_check"
 
 ### Session user (server only)
 
-`SessionUser = { id, name, role, companyId, companyName }`. Built from the session row on every request. It never
+`SessionUser = { userId, companyId, role, name, companyName }` (the shape agreed in docs/phases.md). Built from the session row on every request. It never
 leaves the server whole.
 
 ### Shell user (DTO to the client)
 
-`ShellUser = { name, role, companyName }`. This is all the shell and the home page need. No ids, no hash.
+`ShellUser = { name, role, companyName }` in `src/shared/components/current-user/types.ts`. This is all the shell and the home page need. No ids, no hash. The `(app)` layout passes it to `CurrentUserProvider` (a React context, docs/phases.md); it is never used for security.
 
 ### Login input (`auth.schemas.ts`)
 

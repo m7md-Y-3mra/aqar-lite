@@ -21,7 +21,7 @@ classes are used (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`).
 
 ## App shell (every page in the `(app)` group)
 
-Server layout → `AppShell` (client) with a `ShellUser` prop `{ name, role, companyName }`.
+Server layout → `CurrentUserProvider` (React context, `ShellUser = { name, role, companyName }`) → `AppShell` (client), which reads `useCurrentUser()`. The context is for display only, never for security.
 
 | Area | Content |
 |---|---|
