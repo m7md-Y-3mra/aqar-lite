@@ -27,22 +27,13 @@ describe("parseRiyals", () => {
 });
 
 describe("formatRiyals", () => {
-  it("formats halalas as riyals", () => {
-    expect(formatRiyals(150050)).toBe(
-      new Intl.NumberFormat("ar-SA", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(1500.5),
-    );
+  it("formats halalas as riyals with Latin digits", () => {
+    expect(formatRiyals(150050)).toBe("1,500.50");
+    expect(formatRiyals(5)).toBe("0.05");
   });
 
   it("formats amounts above float precision exactly", () => {
-    expect(formatRiyals(Number.MAX_SAFE_INTEGER)).toBe(
-      new Intl.NumberFormat("ar-SA", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format("90071992547409.91"),
-    );
+    expect(formatRiyals(Number.MAX_SAFE_INTEGER)).toBe("90,071,992,547,409.91");
   });
 });
 

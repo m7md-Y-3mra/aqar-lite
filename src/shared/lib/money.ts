@@ -7,7 +7,8 @@ export function parseRiyals(text: string): number | null {
   return halalas <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(halalas) : null;
 }
 
-const riyalFormatter = new Intl.NumberFormat("ar-SA", {
+// Latin digits, so prices match the other numbers in tables and inputs.
+const riyalFormatter = new Intl.NumberFormat("ar-SA-u-nu-latn", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
