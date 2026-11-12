@@ -17,6 +17,8 @@ Expected:
 - `curl -s http://localhost:3000 | grep -o '<html[^>]*>'` contains `lang="ar"` and `dir="rtl"`.
 - `curl -sI http://localhost:3000` shows `content-security-policy`, `x-frame-options`,
   `x-content-type-options`, `referrer-policy`, and no `x-powered-by`.
+- `docker image inspect $(docker compose images -q app) --format '{{json .Config.Env}}'` does **not** contain `DATABASE_URL` (the build-time dummy is not left in the image).
+- `docker compose exec db sh -c 'echo $PGDATA'` prints `/var/lib/postgresql/18/docker`, and `docker volume ls` shows the named `db-data` volume (no extra anonymous volume).
 
 ## §2 Second start (FR-002, SC-002)
 

@@ -34,7 +34,7 @@ date-fns 4 + @date-fns/tz, @node-rs/argon2 2.2, server-only. Versions are pinned
 **Performance Goals**: Clean clone to working home page in under 5 minutes (SC-001); PR check result within 10 minutes (SC-006).
 
 **Constraints**: Production build in Docker (clarification Q1); building the image needs no runtime secrets;
-`npm audit` with no high or critical findings; no package outside the agreed list without approval (see "Open question").
+`npm audit` with no high or critical findings; no package outside the agreed list plus the approved research.md R5 additions.
 
 **Scale/Scope**: Infrastructure only: one placeholder page, no business features (FR-022).
 
@@ -53,13 +53,13 @@ Source: `.specify/memory/constitution.md`.
 | V | Database-Enforced Integrity | PASS | Migrations only through `prisma migrate`; entrypoint and integration setup both run `migrate deploy`. No schema yet. |
 | VI | Layered Feature Architecture | PASS | Lint blocks ORM imports outside `*.repository.ts` / `src/server/db.ts`, and server imports in client code; `server-only` makes the build fail too; tests prove both (R6). TS strict, `no-explicit-any` on. |
 | VII | Security by Default | PASS | Env validated at startup; pino redaction; generic Arabic 500; Origin check on mutating requests; security headers + CSP; no secrets in repo/CI; `.env.example`. Known limit: CSP allows inline scripts (R11). |
-| VIII | Scope Discipline and Simplicity | **PASS pending approval** | Only agreed tools, plus the packages in research.md R5, each with a reason. AGENTS §9 says to ask first, so they are listed under "Open question" below. Assumptions recorded in the README. |
+| VIII | Scope Discipline and Simplicity | PASS | Only agreed tools, plus the packages in research.md R5, each with a reason, approved by the user on 2026-11-12. Assumptions recorded in the README. |
 
-**Post-design re-check**: unchanged. All PASS; VIII still needs the user's approval of R5 before `/speckit-tasks`.
+**Post-design re-check**: all PASS.
 
 ## Departures from the agreed plan notes
 
-These are small, but the notes say "do not change without asking". All are listed under "Open question" below.
+These are small, but the notes say "do not change without asking". The user approved all four on 2026-11-12.
 
 1. **Session check in the route wrapper** cannot work before phase 2 (no Session table, no `requireUser`).
    Phase 0 ships the `auth` option, and `"user"` fails closed with 401. Phase 2 plugs in the real check.
@@ -103,12 +103,12 @@ components.json                   # shadcn: aliases → src/shared/components/ui
 vitest.config.ts                  # unit
 vitest.integration.config.ts      # integration
 prisma.config.ts                  # schema path, migrations path, seed cmd, env("DATABASE_URL")
-.env.example                      # every variable, no real secrets
+.env.example                      # every app variable + TEST_DATABASE_URL (tooling only), no real secrets
 .gitignore                        # node_modules, .next, .env*, !.env.example, src/generated
 .nvmrc                            # 22
 .dockerignore
-Dockerfile                        # deps → build → runner, node:22-bookworm-slim
-docker-compose.yml                # db (healthcheck, init SQL, volume) + app (depends_on healthy)
+Dockerfile                        # deps → build → runner, node:22-bookworm-slim; dummy DATABASE_URL inline on the generate RUN only
+docker-compose.yml                # db (healthcheck, init SQL, volume db-data → /var/lib/postgresql) + app (depends_on healthy)
 README.md                         # Running, ports, Assumptions (seeded with phase 0 decisions)
 
 # Docker support
@@ -190,34 +190,68 @@ Startup and Docker behaviour (FR-001–003) are only manual: no test framework h
 | FR-017 unit tests need no DB | `npm run test` with the DB stopped (quickstart §6) | Manual |
 | FR-018 integration tests on real, separate, auto-migrated test DB | `tests/integration/server/db.test.ts` (asserts `current_database() = 'aqar_test'`), `tests/integration/setup/global-setup.ts` (refuses non-`_test` DB, clear unreachable message, migrate deploy) | Auto |
 | FR-019 tests mirror `src/` | tree above | Review |
-| FR-020 PR to main runs lint + typecheck with visible result | quickstart §7 (after the first push) | Manual |
+| FR-020 PR to main runs lint + typecheck with visible result (not a required check) | quickstart §7 (after the first push) | Manual |
 | FR-021 no secrets in CI | review of `ci.yml` (dummy URL on generate step only) | Review |
 | FR-022 no business features | review | Review |
 
-## Making the check required (GitHub settings, not changed by me)
+## Docker build: dummy database URL is build-time only
 
-After the repository is pushed and the first PR has run the workflow once:
+`prisma generate` refuses to run without `DATABASE_URL` (research.md R3). The Dockerfile sets a dummy
+value **inline on that one `RUN` line only**, in the `build` stage:
 
-1. GitHub → repository → **Settings → Rules → Rulesets → New ruleset → New branch ruleset**.
-2. Name: `main protection`. **Enforcement status: Active**.
-3. **Target branches → Add target → Include default branch** (`main`).
-4. Enable **Require a pull request before merging**.
-5. Enable **Require status checks to pass**, then **Add checks** and pick **`lint-typecheck`**
-   (the job name; it appears in the list only after the workflow has run once). Optionally tick
-   **Require branches to be up to date before merging**.
-6. Optionally enable **Block force pushes**. **Create**.
+```dockerfile
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate
+```
 
-Plan limit: GitHub documents rulesets for Team and Enterprise plans, and on GitHub Free they are
-enforced only on public repositories. On a private repository under a Free personal account the
-ruleset may save but not be enforced, or the page may ask for an upgrade. The check still runs and shows
-pass/fail on every PR either way (FR-020 only needs that). Requiring it needs GitHub Pro or Team.
+- No `ENV DATABASE_URL` and no `ARG DATABASE_URL` anywhere in the Dockerfile. An inline variable lives
+  only for that one command and is not stored in the image config.
+- The `runner` stage starts from a fresh `FROM`, so nothing from the `build` stage's environment
+  carries over.
+- `next build` does not need `DATABASE_URL`, because `getEnv()` is lazy (research.md R7).
+- At runtime `DATABASE_URL` comes only from `docker-compose.yml` `environment:`, and nothing in the image can override it.
+- Proof: quickstart §1 runs `docker image inspect` and checks that `DATABASE_URL` is not in the image's `Config.Env`.
 
-## Open question (before `/speckit-tasks`)
+## PostgreSQL 18 data volume
 
-One approval covers all of these:
-- The extra packages in research.md R5: `@prisma/adapter-pg`, `typescript` and `@types/*`, `eslint`, `eslint-config-next`, `@tailwindcss/postcss`, and the shadcn base packages.
+Checked on the local `postgres:18-alpine` image (PostgreSQL 18.6):
+`PGDATA=/var/lib/postgresql/18/docker`, and the image declares `VOLUME /var/lib/postgresql`.
+From 18 on, the data folder is versioned under `/var/lib/postgresql`. Mounting the old
+`/var/lib/postgresql/data` path is wrong for 18: the image writes outside it, and an anonymous volume
+would hold the real data.
+
+- `docker-compose.yml` mounts the named volume `db-data` at **`/var/lib/postgresql`**.
+- `PGDATA` is not overridden.
+- `docker/db/init/` is mounted read-only at `/docker-entrypoint-initdb.d`.
+
+## Integration test database
+
+- **Created by**: `docker/db/init/01-create-test-db.sql` (`CREATE DATABASE aqar_test;`), mounted into
+  `/docker-entrypoint-initdb.d`. Postgres runs it only when the data volume is empty (first start).
+  An existing volume needs `docker compose down -v` once; the README says so.
+- **Separate URL**: tests never read the app's `DATABASE_URL` from the developer's environment.
+  `vitest.integration.config.ts` reads `TEST_DATABASE_URL` (default
+  `postgresql://aqar:aqar@localhost:5432/aqar_test`) and sets `test.env.DATABASE_URL` to that value
+  for the test workers. `globalSetup` uses the same value for `prisma migrate deploy`.
+- **Guard**: `tests/integration/setup/global-setup.ts` aborts unless the database name ends in `_test`,
+  so a wrong URL can never migrate or wipe the app database.
+- **Auto-migrate** (clarification Q2): `globalSetup` runs `prisma migrate deploy` on the test database before any test.
+- **Proof**: `tests/integration/server/db.test.ts` asserts `SELECT current_database()` returns `aqar_test`.
+- `.env.example` lists `TEST_DATABASE_URL` under a "tooling only" comment; the app's env schema does not read it.
+
+## CI check: not required (user decision)
+
+The `CI / lint-typecheck` check runs on every pull request to `main` and shows pass/fail (FR-020).
+It is **not** made a required status check, and no GitHub ruleset or branch protection is set up.
+
+## Approvals (2026-11-12)
+
+The user approved:
+- The extra packages in research.md R5.
 - The pins in R1–R3: TypeScript 6.0, ESLint 9, Prisma 7.10.1.
-- The departures 1–4 above.
+- Departures 1–4 above.
+- Skipping the agent-context update (`CLAUDE.md` stays `@AGENTS.md`).
+
+Constitution principle VIII is now **PASS**.
 
 ## Complexity Tracking
 

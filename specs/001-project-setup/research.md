@@ -117,13 +117,13 @@ no `next-themes`, no `eslint-config-prettier` (no stylistic ESLint rules are ena
 ## R8. Docker
 
 - **Decision**: Multi-stage `Dockerfile` on `node:22-bookworm-slim`:
-  `deps` (`npm ci`) → `build` (`prisma generate` with dummy URL, `next build`) → `runner`
+  `deps` (`npm ci`) → `build` (`prisma generate` with a dummy URL set inline on that `RUN` line only; never `ENV`/`ARG`, see plan.md; then `next build`) → `runner`
   (`npm prune --omit=dev` output, `.next`, `public`, `prisma/`, `prisma.config.ts`, `scripts/`,
   `src/server/env.ts`, `next.config.ts`, `package.json`; runs as user `node`).
   `prisma` is a **runtime** dependency because the entrypoint runs `prisma migrate deploy`.
 - **Entrypoint** `docker/app/entrypoint.sh` (`set -eu`): check env → `prisma migrate deploy` →
   `prisma db seed` (the seed skips itself when data exists; empty in phase 0) → `exec next start`.
-- **Compose**: `db` = `postgres:18-alpine`, healthcheck `pg_isready`, named volume, port 5432,
+- **Compose**: `db` = `postgres:18-alpine`, healthcheck `pg_isready`, named volume `db-data` mounted at `/var/lib/postgresql` (checked: the 18 image sets `PGDATA=/var/lib/postgresql/18/docker` and declares `VOLUME /var/lib/postgresql`; the old `/var/lib/postgresql/data` mount is wrong for 18), port 5432,
   `docker/db/init/01-create-test-db.sql` mounted into `/docker-entrypoint-initdb.d` (creates
   `aqar_test` on first start only). `app` builds the Dockerfile, `depends_on: db: condition: service_healthy`,
   port 3000, `environment:` holds non-secret local development values (no `.env` needed).
@@ -181,9 +181,5 @@ no `next-themes`, no `eslint-config-prettier` (no stylistic ESLint rules are ena
   `DATABASE_URL` on that step only → `npm run lint` → `npm run typecheck`.
 - **Versions checked**: `gh api repos/actions/checkout/releases/latest` → `v7.0.1`;
   `gh api repos/actions/setup-node/releases/latest` → `v7.1.0`. Both are official `actions/*`. No secrets are used.
-- **Required check**: the status check name is the job name, `lint-typecheck`. GitHub documents
-  rulesets for **GitHub Team and Enterprise** plans; on GitHub Free they are enforced only on
-  public repositories. The brief requires a private repository, so on a Free personal account the check
-  still **runs and shows pass/fail on every PR** (FR-020), but GitHub may not let you make it
-  *required*. See plan.md "Making the check required".
+- **Not a required check** (user decision, 2026-11-12): the check only runs and shows pass/fail on PRs. No ruleset or branch protection is configured.
 - **No remote yet**: `git remote -v` shows no remote. The workflow can only be checked on GitHub after you push.
