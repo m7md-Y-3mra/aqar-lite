@@ -179,6 +179,28 @@ describe("expiry", () => {
 });
 
 describe("tenant isolation", () => {
+  it.each(["manager", "sales1", "accountant"] as const)(
+    "getUnit of company B → NOT_FOUND for %s",
+    async (role) => {
+      const foreign = await makeUnit(companies.b.companyId);
+      await expect(getUnit(companies.a[role], foreign.id)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    },
+  );
+
+  it("list filters cannot reach company B", async () => {
+    await makeUnit(companies.a.companyId, { price: 100n });
+    await makeUnit(companies.b.companyId, { status: "SOLD", price: 200n });
+    for (const user of [companies.a.manager, companies.a.sales1, companies.a.accountant]) {
+      const page = await listUnits(
+        user,
+        unitListQuerySchema.parse({ status: "SOLD", minPrice: "200", maxPrice: "200" }),
+      );
+      expect(page).toMatchObject({ items: [], total: 0 });
+    }
+  });
+
   it("lists only the session company's units", async () => {
     const own = await makeUnit(companies.a.companyId);
     const foreign = await makeUnit(companies.b.companyId, { status: "RESERVED" });

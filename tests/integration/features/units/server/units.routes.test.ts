@@ -84,12 +84,16 @@ describe("units routes", () => {
     expect(await readJson(response)).toMatchObject({ error: { code: "NOT_FOUND" } });
   });
 
-  it("GET /api/units/<company B unit id> returns 404", async () => {
-    const foreign = await makeUnit(companies.b.companyId);
-    const response = await detail(foreign.id);
-    expect(response.status).toBe(404);
-    expect(await readJson(response)).toMatchObject({ error: { code: "NOT_FOUND" } });
-  });
+  it.each(["manager", "sales1", "accountant"] as const)(
+    "GET /api/units/<company B unit id> returns 404 for %s",
+    async (role) => {
+      await signIn(role);
+      const foreign = await makeUnit(companies.b.companyId);
+      const response = await detail(foreign.id);
+      expect(response.status).toBe(404);
+      expect(await readJson(response)).toMatchObject({ error: { code: "NOT_FOUND" } });
+    },
+  );
 
   it("GET /api/units/<missing uuid> returns 404", async () => {
     const response = await detail(randomUUID());
