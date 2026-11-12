@@ -45,7 +45,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 - [X] T008 Create `prisma/schema.prisma` with only `generator client { provider = "prisma-client"; output = "../src/generated/prisma" }` and `datasource db { provider = "postgresql" }`, and no models. Create `prisma.config.ts`: `import { defineConfig, env } from "prisma/config"`. At the top, `if (existsSync(".env")) process.loadEnvFile(".env")` (Node built-in; Prisma 7 no longer loads `.env`). Export `defineConfig({ schema: "prisma/schema.prisma", migrations: { path: "prisma/migrations", seed: "node prisma/seed.ts" }, datasource: { url: env("DATABASE_URL") } })`.
 - [X] T009 [P] Create `prisma/seed.ts`: plain TypeScript runnable by Node 22 type stripping (no enums, no imports with `@/`). In phase 0 it only prints `"Seed: nothing to seed in this phase."` with `process.stdout.write`. Add a comment: phase 1 makes it idempotent ("skip if data exists").
 - [X] T010 Create `src/server/env.ts` per [contracts/environment.md](./contracts/environment.md). Contents: `import "server-only"`; a Zod schema for `DATABASE_URL` (trimmed, non-empty, must start with `postgresql://` or `postgres://`), `APP_ORIGIN` (trimmed, non-empty, `http(s)` URL whose `origin === value`, so no path), and `LOG_LEVEL` (enum `fatal|error|warn|info|debug|trace|silent`, default `info`, empty treated as unset). Export `class EnvError extends Error` whose message lists **every** failing key with a reason and never a value (the format in contracts/environment.md). Export `parseEnv(source: Record<string, string | undefined>): Env` (pure, throws `EnvError`), `getEnv(): Env` (lazy and cached; parses `process.env` on first call, never at import time), and `type Env` (readonly). Use only erasable TypeScript (no enums or namespaces) so `scripts/check-env.ts` can run it under Node type stripping.
-- [X] T011 [P] Create `.env.example` listing `DATABASE_URL=postgresql://aqar:aqar@localhost:5432/aqar`, `APP_ORIGIN=http://localhost:3000`, `LOG_LEVEL=info` (each with a one-line `#` comment), then a `# Tooling only (not read by the app)` block with `TEST_DATABASE_URL=postgresql://aqar:aqar@localhost:5432/aqar_test`. No real secrets.
+- [X] T011 [P] Create `.env.example` listing `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar`, `APP_ORIGIN=http://localhost:3000`, `LOG_LEVEL=info` (each with a one-line `#` comment), then a `# Tooling only (not read by the app)` block with `TEST_DATABASE_URL=postgresql://aqar:aqar@localhost:5432/aqar_test`. No real secrets.
 - [X] T012 [P] Create `src/server/logger.ts`: `import "server-only"`. Export `logger` = `pino({ level: process.env.LOG_LEVEL || "info", redact: { paths: [...], censor: "[Redacted]" } })`. Read `process.env` directly so importing the logger never triggers full env validation; an invalid `LOG_LEVEL` has already stopped startup through `getEnv()`. Redact paths: `password`, `*.password`, `passwordHash`, `*.passwordHash`, `token`, `*.token`, `cookie`, `*.cookie`, `authorization`, `*.authorization`, `headers.cookie`, `headers.authorization`, `*.headers.cookie`, `*.headers.authorization`, `req.headers.cookie`, `req.headers.authorization`. No transports. Also export `createLogger(destination)` for tests, built with the same options.
 - [X] T013 Create `src/server/db.ts`: `import "server-only"`. Build a singleton `PrismaClient` from `@/generated/prisma/client` with `adapter: new PrismaPg({ connectionString: getEnv().DATABASE_URL })`, created lazily on first `getDb()` and kept on `globalThis` in development to survive hot reload. Export `getDb()`, `type Tx` (the transaction client type from the generated client), and `withTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T>` that calls `getDb().$transaction(fn)`. Run `npm run db:generate` first (with `DATABASE_URL` set) so the import type-checks. Depends on T008 and T010.
 - [X] T014 [P] Create `src/server/http/error-codes.ts` (`import "server-only"`): `export const ERROR_CODES = { VALIDATION_ERROR: 400, UNAUTHORIZED: 401, FORBIDDEN: 403, INVALID_ORIGIN: 403, NOT_FOUND: 404, INTERNAL_ERROR: 500 } as const` and `export type ErrorCode = keyof typeof ERROR_CODES`. Create `src/server/http/app-error.ts` (`import "server-only"`): `class AppError extends Error` with readonly `code: ErrorCode` and optional `fieldErrors?: Record<string, string[]>`.
@@ -88,7 +88,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
     - `image: postgres:18-alpine`
     - `environment: POSTGRES_USER=aqar, POSTGRES_PASSWORD=aqar, POSTGRES_DB=aqar`
     - `volumes`: named `db-data:/var/lib/postgresql` (**not** `/var/lib/postgresql/data`; plan.md "PostgreSQL 18 data volume") and `./docker/db/init:/docker-entrypoint-initdb.d:ro`
-    - `ports: "5432:5432"`
+    - `ports: "127.0.0.1:${DB_HOST_PORT:-5433}:5432"` (review fix P1: loopback only, avoids a host Postgres on 5432)
     - `healthcheck: pg_isready -U aqar -d aqar`, interval 5s, timeout 5s, retries 10
   - **`app` service**:
     - `build: .`
@@ -96,7 +96,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
     - `environment: DATABASE_URL=postgresql://aqar:aqar@db:5432/aqar, APP_ORIGIN=http://localhost:3000, LOG_LEVEL=info`, with a comment that these are local development values, not secrets
     - `ports: "3000:3000"`
   - Top-level `volumes: db-data:`.
-- [ ] T030 [US1] Validate US1 with quickstart.md §1–§3 on a clean state (`docker compose down -v && docker compose up --build`):
+- [X] T030 [US1] Validate US1 with quickstart.md §1–§3 on a clean state (`docker compose down -v && docker compose up --build`):
   - `curl` shows `lang="ar" dir="rtl"` and the security headers, with no `x-powered-by`.
   - `docker image inspect` shows no `DATABASE_URL` in `Config.Env`.
   - `PGDATA` is `/var/lib/postgresql/18/docker`.
@@ -115,7 +115,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 ### Tests for User Story 2
 
-- [ ] T031 [P] [US2] Write `tests/unit/server/http/route-handler.test.ts`. Set the `APP_ORIGIN` env, then build handlers with `handleRoute` and call them with `new Request(...)`. Assert:
+- [X] T031 [P] [US2] Write `tests/unit/server/http/route-handler.test.ts`. Set the `APP_ORIGIN` env, then build handlers with `handleRoute` and call them with `new Request(...)`. Assert:
   - (a) POST with no `Origin` → 403 `INVALID_ORIGIN`.
   - (b) POST with `Origin: https://evil.example` → 403.
   - (c) POST with the matching origin → 200 `{ data }`.
@@ -125,14 +125,14 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   - (g) a handler parsing `{}` with `z.object({ name: z.string() })` → 400 with `error.fieldErrors.name`.
   - (h) a malformed JSON body → 400 `VALIDATION_ERROR`.
   - (i) a handler throwing `new Error("db password=secret")` → 500, generic Arabic message, the body does not contain `secret`, and the error is passed to the logger (spy on `logger.error`).
-- [ ] T032 [P] [US2] Write `tests/unit/server/logger.test.ts`: create a logger with `createLogger` writing to an in-memory stream. Log `{ password: "p", user: { passwordHash: "h" }, token: "t", headers: { cookie: "c", authorization: "a" } }` and assert the JSON line contains `[Redacted]` for each value and none of `"p"`, `"h"`, `"t"`, `"c"`, `"a"` as values.
-- [ ] T033 [P] [US2] Write `tests/unit/shared/lib/error-messages.test.ts`: assert every key of `ERROR_CODES` has a non-empty message in `ERROR_MESSAGES` that contains Arabic characters (`/[؀-ۿ]/`), and that `ERROR_MESSAGES` has no extra keys.
+- [X] T032 [P] [US2] Write `tests/unit/server/logger.test.ts`: create a logger with `createLogger` writing to an in-memory stream. Log `{ password: "p", user: { passwordHash: "h" }, token: "t", headers: { cookie: "c", authorization: "a" } }` and assert the JSON line contains `[Redacted]` for each value and none of `"p"`, `"h"`, `"t"`, `"c"`, `"a"` as values.
+- [X] T033 [P] [US2] Write `tests/unit/shared/lib/error-messages.test.ts`: assert every key of `ERROR_CODES` has a non-empty message in `ERROR_MESSAGES` that contains Arabic characters (`/[؀-ۿ]/`), and that `ERROR_MESSAGES` has no extra keys.
 
 ### Implementation for User Story 2
 
 - [ ] T034 [US2] Create `vitest.integration.config.ts`:
   - `test.include: ["tests/integration/**/*.test.ts"]`, `environment: "node"`, `fileParallelism: false`, `testTimeout: 30_000`, the same `@` and `server-only` aliases as T019, `globalSetup: ["tests/integration/setup/global-setup.ts"]`.
-  - `const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5432/aqar_test"`.
+  - `const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test"`.
   - `test.env: { DATABASE_URL: testDbUrl, APP_ORIGIN: "http://localhost:3000", LOG_LEVEL: "silent" }`. The test workers never see the developer's app `DATABASE_URL`.
 - [ ] T035 [US2] Create `tests/integration/setup/global-setup.ts` (default export `async function setup()`). Resolve the same `testDbUrl`, then:
   - (1) Parse the URL. If the database name does not end in `_test`, throw `Refusing to run integration tests against "<name>": the database name must end in _test.`
