@@ -45,8 +45,8 @@ description: "Task list for phase 3: units and clients"
 
 **Purpose**: Confirm the dependencies exist and record the real names phase 2 chose.
 
-- [ ] T001 Check that `main` has phase 2 merged: `git log main` shows the phase 2 merge, and `src/server/auth/` exists on `main`. If it does not, STOP and report "blocked on phase 2". Otherwise run `git rebase main` on this branch.
-- [ ] T002 Read phase 2's code and fill in the real names in `specs/004-unit-client-management/plan.md` (section "Source Code", replacing the `P2?` markers and `<phase 2 nav component>`) and in `specs/004-unit-client-management/research.md` R11. The names to find:
+- [X] T001 Check that `main` has phase 2 merged: `git log main` shows the phase 2 merge, and `src/server/auth/` exists on `main`. If it does not, STOP and report "blocked on phase 2". Otherwise run `git rebase main` on this branch.
+- [X] T002 Read phase 2's code and fill in the real names in `specs/004-unit-client-management/plan.md` (section "Source Code", replacing the `P2?` markers and `<phase 2 nav component>`) and in `specs/004-unit-client-management/research.md` R11. The names to find:
   - the `requireUser()` import path and its `SessionUser` type;
   - how `handleRoute({ auth: "user" })` passes the user to the handler;
   - the audit writer function and its file;
@@ -109,7 +109,7 @@ description: "Task list for phase 3: units and clients"
   - anything else → `setError("root", { message })`, using `err.message` or the generic Arabic message.
 
   It depends on T015 or phase 2's `ApiError`. T007 must pass.
-- [ ] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@<version phase 2 used> add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
+- [ ] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@4.23.0 add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
 - [ ] T018 [P] Create `src/shared/components/money-input/money-input.tsx` and `index.ts` (research R5):
   - a client component;
   - props `{ value: number | undefined; onChange(halalas: number): void; id; name; disabled?; aria-invalid? }`;
@@ -201,7 +201,7 @@ description: "Task list for phase 3: units and clients"
   - empty → `EmptyState` ("لا توجد وحدات مطابقة", with a clear-filters link when filters are set);
   - otherwise `UnitsFilters` + `UnitsTable` (`dimmed` when `isPlaceholderData`) + `PaginationNav`;
   - a title of "الوحدات".
-- [ ] T038 [US1] Create `src/app/units/page.tsx` (inside phase 2's authenticated route group if it has one):
+- [ ] T038 [US1] Create `src/app/(app)/units/page.tsx` (phase 2's authenticated route group):
   - `const user = await requireUser()`;
   - `const parsed = unitListQuerySchema.safeParse(toQueryInput(await searchParams))`;
   - if successful, `await queryClient.prefetchQuery({ queryKey: unitKeys.list(parsed.data), queryFn: () => listUnits(user, parsed.data) })` with `getQueryClient()`;
@@ -248,7 +248,7 @@ description: "Task list for phase 3: units and clients"
   - each field has a `Label` and its error message under it;
   - a `root` error shows as an `Alert` at the top;
   - the submit button is disabled while pending.
-- [ ] T047 [US2] Create `src/app/units/new/page.tsx`: `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`; render `<UnitForm mode="create" />`.
+- [ ] T047 [US2] Create `src/app/(app)/units/new/page.tsx`: `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`; render `<UnitForm mode="create" />`.
 - [ ] T048 [US2] In `src/features/units/client/units-page/units-page.tsx`, show an "إضافة وحدة" link (`buttonVariants`) to `/units/new` only when `role === "MANAGER"`.
 
 **Checkpoint**: US1 + US2 work. T040 and T041 pass.
@@ -298,7 +298,7 @@ description: "Task list for phase 3: units and clients"
   - on success, invalidate `unitKeys.all` and show the toast "تم حفظ التعديلات";
   - when `unit.status !== "AVAILABLE"`, render the price `MoneyInput` as `disabled`, with the hint "لا يمكن تغيير السعر لأن الوحدة محجوزة أو مباعة";
   - on a 409 (`UNIT_PRICE_LOCKED` / `UNIT_CHANGED`), call `applyApiError` (root alert) and `refetch()` the detail query, so the current status and price show.
-- [ ] T055 [US3] Create `src/app/units/[id]/edit/page.tsx`:
+- [ ] T055 [US3] Create `src/app/(app)/units/[id]/edit/page.tsx`:
   - `requireUser()`; `role !== "MANAGER"` → `redirect("/units")`;
   - `unitIdSchema.safeParse(id)` failure → `notFound()`;
   - `prefetchQuery({ queryKey: unitKeys.detail(id), queryFn: () => getUnit(user, id) })`;
@@ -366,10 +366,10 @@ description: "Task list for phase 3: units and clients"
   - fields name, phone (`dir="ltr"`) and notes (`Textarea`), each with its error under it, and a root `Alert`;
   - on success, invalidate `clientKeys.all`, show a toast, then `router.push("/clients/{id}")`.
 - [ ] T070 [US4] Create the client pages:
-  - `src/app/clients/page.tsx`: same pattern as T038, with `listClients` and `clientKeys.list`.
-  - `src/app/clients/new/page.tsx`: `role !== "SALES"` → `redirect("/clients")`.
-  - `src/app/clients/[id]/page.tsx`: prefetch `getClient`; `NOT_FOUND` → `notFound()`, as in T055.
-  - `src/app/clients/[id]/edit/page.tsx`: `role !== "SALES"` → `redirect("/clients")`; prefetch; `NOT_FOUND` → `notFound()`.
+  - `src/app/(app)/clients/page.tsx`: same pattern as T038, with `listClients` and `clientKeys.list`.
+  - `src/app/(app)/clients/new/page.tsx`: `role !== "SALES"` → `redirect("/clients")`.
+  - `src/app/(app)/clients/[id]/page.tsx`: prefetch `getClient`; `NOT_FOUND` → `notFound()`, as in T055.
+  - `src/app/(app)/clients/[id]/edit/page.tsx`: `role !== "SALES"` → `redirect("/clients")`; prefetch; `NOT_FOUND` → `notFound()`.
 - [ ] T071 [US4] Add a "العملاء" link (all roles) to the phase 2 navigation component.
 
 **Checkpoint**: The sales rep client flow works alone. T058–T060 pass.

@@ -110,13 +110,14 @@ specs/004-unit-client-management/
 
 Legend: **new**, **change**. **P2?** = expected from phase 2; create it here only if phase 2 did not.
 
-Two names are left open on purpose and are filled in by `/speckit-tasks` after phase 2 lands:
-- `<timestamp>`: set by `prisma migrate dev --create-only`.
-- `<phase 2 nav component>`: phase 2 names that file.
+Names filled in after phase 2 was merged (T002):
+- Migration: `20261112180000_units_clients_checks` (sorted after phase 2's auth migration).
+- Navigation: `src/shared/lib/navigation.ts` (`NAV_ITEMS`, read by `src/shared/components/app-shell/components/nav-menu`).
+- Pages go inside phase 2's authenticated route group `src/app/(app)/`.
 
 ```text
 # Database
-prisma/migrations/<timestamp>_units_clients_checks/migration.sql   new   clients name/phone trim + not-empty checks; units price <= 10^11 (R9)
+prisma/migrations/20261112180000_units_clients_checks/migration.sql   new   clients name/phone trim + not-empty checks; units price <= 10^11 (R9)
 
 # Server infrastructure (src/server)
 src/server/db.ts                          change  + isUniqueViolation(err, constraint) (R6)
@@ -127,7 +128,7 @@ src/shared/lib/error-messages.ts          change  + Arabic text for the 2 new co
 src/shared/lib/money.ts                   new     parseRiyals(text) → halalas | null; formatRiyals(halalas) (R5)
 src/shared/lib/search-params.ts           new     toQueryInput(URLSearchParams | record): "" → undefined, repeated → string[] (R4)
 src/shared/lib/pagination.ts              new     paginationFields (page, pageSize zod), Page<T>, toSkip(page, pageSize)
-src/shared/lib/api-client.ts              P2?     apiFetch<T>(url, init): unwraps { data } / throws ApiError { status, code, message, fieldErrors }
+src/shared/lib/api-client.ts              new     apiFetch<T>(url, init): unwraps { data } / throws ApiError { status, code, message, fieldErrors }
 src/shared/lib/form-errors.ts             new     applyApiError(err, setError): 400 fieldErrors → setError(field); 409/other → setError("root")
 src/shared/components/ui/button.tsx       P2      from phase 2 (shadcn); reused (R7)
 src/shared/components/ui/input.tsx        P2      from phase 2 (shadcn); reused
@@ -193,18 +194,18 @@ src/features/clients/client/client-form/use-client-form.ts     new
 src/features/clients/client/client-form/index.ts               new
 
 # Routing (src/app); inside phase 2's authenticated route group if it makes one
-src/app/units/page.tsx                    new  requireUser → parse → prefetch list → HydrationBoundary → <UnitsPage>
-src/app/units/new/page.tsx                new  requireUser; non-manager → redirect("/units"); <UnitForm mode="create">
-src/app/units/[id]/edit/page.tsx          new  requireUser; non-manager → redirect; prefetch detail; NOT_FOUND → notFound() (R8)
-src/app/clients/page.tsx                  new  requireUser → parse → prefetch list → <ClientsPage>
-src/app/clients/new/page.tsx              new  requireUser; non-SALES → redirect("/clients")
-src/app/clients/[id]/page.tsx             new  prefetch detail; NOT_FOUND → notFound(); <ClientDetails>
-src/app/clients/[id]/edit/page.tsx        new  requireUser; non-SALES → redirect; prefetch; NOT_FOUND → notFound()
+src/app/(app)/units/page.tsx                    new  requireUser → parse → prefetch list → HydrationBoundary → <UnitsPage>
+src/app/(app)/units/new/page.tsx                new  requireUser; non-manager → redirect("/units"); <UnitForm mode="create">
+src/app/(app)/units/[id]/edit/page.tsx          new  requireUser; non-manager → redirect; prefetch detail; NOT_FOUND → notFound() (R8)
+src/app/(app)/clients/page.tsx                  new  requireUser → parse → prefetch list → <ClientsPage>
+src/app/(app)/clients/new/page.tsx              new  requireUser; non-SALES → redirect("/clients")
+src/app/(app)/clients/[id]/page.tsx             new  prefetch detail; NOT_FOUND → notFound(); <ClientDetails>
+src/app/(app)/clients/[id]/edit/page.tsx        new  requireUser; non-SALES → redirect; prefetch; NOT_FOUND → notFound()
 src/app/api/units/route.ts                new  export { GET, POST } from units routes
 src/app/api/units/[id]/route.ts           new  export { GET, PATCH }
 src/app/api/clients/route.ts              new  export { GET, POST }
 src/app/api/clients/[id]/route.ts         new  export { GET, PATCH }
-<phase 2 nav component>                   change  + links "الوحدات" (all roles), "العملاء" (all roles)
+src/shared/lib/navigation.ts              change  + links "الوحدات" (all roles), "العملاء" (all roles)
 
 # Tests
 tests/unit/shared/lib/money.test.ts                    new

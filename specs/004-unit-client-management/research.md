@@ -138,7 +138,7 @@ The same feature schema (`unitListQuerySchema`, `clientListQuerySchema`) then pa
 
 **Decision**:
 - Reuse phase 2's `button`, `input` and `label` from `src/shared/components/ui/`.
-- Generate the rest with the shadcn CLI, using the existing `components.json`: `npx shadcn@<pinned version phase 2 used> add textarea native-select table badge skeleton alert`.
+- Generate the rest with the shadcn CLI, using the existing `components.json`: `npx shadcn@4.23.0 add textarea native-select table badge skeleton alert`.
 - If the CLI wants to install any package other than `radix-ui`, stop and ask.
 - Links styled as buttons use `<Link className={buttonVariants()}>` (or `Button asChild` if phase 2's `button` supports it).
 - Status, type and sort pickers use `native-select`, not the Radix `select`.
@@ -209,6 +209,20 @@ It is created with `prisma migrate dev --create-only` (`DATABASE_URL` must be se
 | Audit writer | a function that takes `tx` and `{ companyId, userId, action, entityId, meta }` and inserts one `audit_logs` row through a repository |
 | App shell | an authenticated layout and navigation where the "الوحدات" and "العملاء" links are added |
 | Login test helper | a way for route-level tests to send a valid session cookie |
+
+**Actual names after the merge (T002)**:
+
+| Needed | Actual |
+|---|---|
+| `requireUser()` | `src/server/auth/require-user.ts` → `requireUser()` (redirects to `/login`), cached `getCurrentUser()` |
+| `SessionUser` | `src/server/auth/session.service.ts` → `{ userId, companyId, role: Role, name, companyName }`; `Role` from `src/shared/lib/roles.ts` |
+| Route wrapper | `handleRoute({ auth: "user", handler: (req, ctx, user) => ... })` in `src/server/http/route-handler.ts`; also `readJson(req)` (bad JSON → 400) |
+| Audit writer | `insertAuditLog({ action, companyId, userId, entityId?, meta, createdAt }, tx)` in `src/server/audit/audit.repository.ts` (not needed in this phase) |
+| Navigation | `NAV_ITEMS` in `src/shared/lib/navigation.ts`; rendered by `src/shared/components/app-shell/components/nav-menu` |
+| Pages | authenticated route group `src/app/(app)/` |
+| Route test session | `makeSession(userId, expiresAt)` in `tests/integration/support/db-fixtures.ts` returns the raw token; cookie name `SESSION_COOKIE` from `src/server/auth/session-token.ts`; `apiRequest(path, { method, body, cookie })` in `tests/integration/support/http.ts` |
+| shadcn components | `button`, `card`, `input`, `label`, `sheet` exist; CLI version 4.23.0 |
+| API client | none: phase 2 calls `fetch` inline, so T015 creates `src/shared/lib/api-client.ts` |
 
 If phase 2 lands with different names, `/speckit-tasks` adapts the calls. The behaviour in this plan does not change.
 
