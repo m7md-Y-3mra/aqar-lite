@@ -34,6 +34,8 @@ Quality, correctness and security beat feature count. Never build out-of-scope i
 ## 3) Multi-Tenancy and Permissions (IMPORTANT)
 - `companyId` and `userId` come from the session only. Never read them from body, query or params.
 - Every repository function takes `companyId` as a required argument and filters by it.
+  Exception: the auth lookups that establish the session (user by email, session by token hash, failed-login count
+  by email) take no `companyId` (constitution I).
 - A record from another company returns 404, not 403.
 - Check role AND ownership in the service for every operation. A sales rep sees only his own clients, reservations and drafts.
 - Never pass the request body to Prisma directly. Use the parsed input only.
