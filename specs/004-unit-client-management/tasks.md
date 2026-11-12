@@ -67,36 +67,36 @@ description: "Task list for phase 3: units and clients"
 
 ### Tests first
 
-- [ ] T004 [P] Write `tests/integration/prisma/units-clients-checks.test.ts`: "rejects empty or untrimmed name" and "rejects empty or untrimmed phone" (insert through `getDb().client.create` with `"  "`, `""` and `" x"`), "rejects price above 10^11 halalas" (`makeUnit` with `price: 100_000_000_001n`) and "accepts price of exactly 10^11 halalas". Assert `expectDbError(…, { code: "23514", constraint: "clients_name_check" | "clients_phone_check" | "units_price_max_check" })` using `tests/integration/support/db-fixtures.ts`.
-- [ ] T005 [P] Write `tests/unit/shared/lib/money.test.ts`. For `parseRiyals`:
+- [x] T004 [P] Write `tests/integration/prisma/units-clients-checks.test.ts`: "rejects empty or untrimmed name" and "rejects empty or untrimmed phone" (insert through `getDb().client.create` with `"  "`, `""` and `" x"`), "rejects price above 10^11 halalas" (`makeUnit` with `price: 100_000_000_001n`) and "accepts price of exactly 10^11 halalas". Assert `expectDbError(…, { code: "23514", constraint: "clients_name_check" | "clients_phone_check" | "units_price_max_check" })` using `tests/integration/support/db-fixtures.ts`.
+- [x] T005 [P] Write `tests/unit/shared/lib/money.test.ts`. For `parseRiyals`:
   - `"1500"` → 150000, `"1500.5"` → 150050, `"1500.05"` → 150005, `"0.01"` → 1;
   - `"1500.555"`, `"-1"`, `"abc"`, `""`, `" "`, `"1e3"` → `null`.
 
   For `formatRiyals`: 150050 shows the Arabic-formatted riyals with 2 decimals.
 
   For `toRiyalText`: 150050 → `"1500.5"`, 150000 → `"1500"`, 5 → `"0.05"`, and it round-trips through `parseRiyals`.
-- [ ] T006 [P] Write `tests/unit/shared/lib/search-params.test.ts` for `toQueryInput`: "empty string → undefined", "repeated key → array", "same result for URLSearchParams and record".
+- [x] T006 [P] Write `tests/unit/shared/lib/search-params.test.ts` for `toQueryInput`: "empty string → undefined", "repeated key → array", "same result for URLSearchParams and record".
 - [ ] T007 [P] Write `tests/unit/shared/lib/form-errors.test.ts` for `applyApiError(err, setError)` with a stub `setError`: "maps 400 fieldErrors to each field" and "maps 409 to root". A non-`ApiError` → root with the generic message.
-- [ ] T008 [P] Add the case "never uses dangerouslySetInnerHTML" to `tests/unit/architecture/conventions.test.ts`. It walks `src/` (using the existing `walk`) and fails if any `.ts`/`.tsx` file contains `dangerouslySetInnerHTML`.
+- [x] T008 [P] Add the case "never uses dangerouslySetInnerHTML" to `tests/unit/architecture/conventions.test.ts`. It walks `src/` (using the existing `walk`) and fails if any `.ts`/`.tsx` file contains `dangerouslySetInnerHTML`.
 
 ### Implementation
 
-- [ ] T009 Create the migration with `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npx prisma migrate dev --create-only --name units_clients_checks`. Write in `prisma/migrations/<timestamp>_units_clients_checks/migration.sql`:
+- [x] T009 Create the migration with `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npx prisma migrate dev --create-only --name units_clients_checks`. Write in `prisma/migrations/<timestamp>_units_clients_checks/migration.sql`:
   - `ALTER TABLE "clients" ADD CONSTRAINT "clients_name_check" CHECK ("name" = btrim("name") AND "name" <> '');`
   - the same for `"phone"` as `clients_phone_check`;
   - `ALTER TABLE "units" ADD CONSTRAINT "units_price_max_check" CHECK ("price" <= 100000000000);`
 
   Apply it. `schema.prisma` does not change. T004 must pass.
-- [ ] T010 [P] Add `UNIT_PRICE_LOCKED: 409` and `UNIT_CHANGED: 409` to `src/server/http/error-codes.ts`. Add their Arabic messages (exact text in contracts/units-api.md › New error codes) to `src/shared/lib/error-messages.ts`.
-- [ ] T011 [P] Add `isUniqueViolation(err: unknown, constraint: string): boolean` to `src/server/db.ts`. It returns true when `err` is a Prisma known request error with code `P2002` and the constraint name appears in its metadata or message. Handle the driver-adapter shape seen in `tests/integration/support/db-fixtures.ts` › `expectDbError` (research R6).
-- [ ] T012 [P] Create `src/shared/lib/money.ts` with `parseRiyals(text: string): number | null`, `formatRiyals(halalas: number): string` and `toRiyalText(halalas: number): string` (plain digits for an input field) (research R5).
+- [x] T010 [P] Add `UNIT_PRICE_LOCKED: 409` and `UNIT_CHANGED: 409` to `src/server/http/error-codes.ts`. Add their Arabic messages (exact text in contracts/units-api.md › New error codes) to `src/shared/lib/error-messages.ts`.
+- [x] T011 [P] Add `isUniqueViolation(err: unknown, constraint: string): boolean` to `src/server/db.ts`. It returns true when `err` is a Prisma known request error with code `P2002` and the constraint name appears in its metadata or message. Handle the driver-adapter shape seen in `tests/integration/support/db-fixtures.ts` › `expectDbError` (research R6).
+- [x] T012 [P] Create `src/shared/lib/money.ts` with `parseRiyals(text: string): number | null`, `formatRiyals(halalas: number): string` and `toRiyalText(halalas: number): string` (plain digits for an input field) (research R5).
   - Split the string on "." and use integer arithmetic only, with no `parseFloat`.
   - Regex `^\d+(\.\d{1,2})?$` after trimming.
   - Format with `Intl.NumberFormat("ar-SA", { minimumFractionDigits: 2 })`.
 
   T005 must pass.
-- [ ] T013 [P] Create `src/shared/lib/search-params.ts` with `toQueryInput(source: URLSearchParams | Record<string, string | string[] | undefined>): Record<string, string | string[] | undefined>` (research R4). T006 must pass.
-- [ ] T014 [P] Create `src/shared/lib/pagination.ts`:
+- [x] T013 [P] Create `src/shared/lib/search-params.ts` with `toQueryInput(source: URLSearchParams | Record<string, string | string[] | undefined>): Record<string, string | string[] | undefined>` (research R4). T006 must pass.
+- [x] T014 [P] Create `src/shared/lib/pagination.ts`:
   - a `digits` schema: `z.string().regex(/^\d+$/)` piped to a number;
   - `paginationFields` = `{ page: digits → int ≥ 1, default 1; pageSize: digits → int 1–50, default 20 }`;
   - `type Page<T> = { items: T[]; total: number; page: number; pageSize: number }`;
@@ -124,21 +124,21 @@ description: "Task list for phase 3: units and clients"
 - [ ] T021 [P] Create `tests/integration/support/session-users.ts`:
   - `makeSessionUser(companyId, role)` calls `makeUser` from `db-fixtures.ts` and returns phase 2's `SessionUser`;
   - `makeTwoCompanies()` returns company A and company B, each with a MANAGER, an ACCOUNTANT and 2 SALES `SessionUser`s.
-- [ ] T022 [P] Create `src/features/units/units.schemas.ts`:
+- [x] T022 [P] Create `src/features/units/units.schemas.ts`:
   - `unitSchema`: z.object with field rules defined once, from data-model.md › Unit (trimmed strings with Arabic messages, `type` enum, `area` int 1–100000, `rooms` int 0–50, `price` int 1–100_000_000_000, plus `id` and `status` for DTO typing).
   - `unitInputSchema = unitSchema.pick({ projectName, number, type, area, rooms, price })`.
   - `unitListQuerySchema`: `status?`, `minPrice?`/`maxPrice?` using `digits` from pagination.ts, `sort?` `price|area`, `order` `asc|desc` default `asc`, `...paginationFields`, with `.refine(min ≤ max, { path: ["minPrice"] })`.
   - `unitIdSchema = z.uuid()`.
   - `UNIT_NUMBER_TAKEN = "رقم الوحدة مستخدم في هذا المشروع"`.
   - No `companyId` anywhere and no `.omit()`.
-- [ ] T023 [P] Write `tests/unit/features/units/units.schemas.test.ts`: "input strips status and companyId", "applies defaults" (page 1, pageSize 20, order asc), and "rejects …" for each of:
+- [x] T023 [P] Write `tests/unit/features/units/units.schemas.test.ts`: "input strips status and companyId", "applies defaults" (page 1, pageSize 20, order asc), and "rejects …" for each of:
   - status=`FOO`, minPrice=`-1`, minPrice=`1.5`, minPrice=`1e3`, minPrice=`" "`
   - minPrice>maxPrice, sort=`rooms`, order=`up`, page=`0`, pageSize=`51`, a repeated `status` key (array)
   - area 0, area 100001, area 1.5, rooms 51, price 0, an empty projectName, a projectName of 101 chars
 
   Also "trims projectName" and "ignores unknown params". It must pass against T022.
-- [ ] T024 [P] Create `src/features/units/units.types.ts` (`UnitDto` per data-model.md › DTOs; `UnitInput = z.infer<typeof unitInputSchema>`; `UnitListQuery = z.infer<typeof unitListQuerySchema>`; `UnitPage = Page<UnitDto>`) and `src/features/units/units.keys.ts` (`unitKeys.all = ["units"]`, `list(query)`, `detail(id)`).
-- [ ] T025 [P] Create `src/features/units/client/unit-labels.ts`: Arabic labels for `UnitType` (شقة، فيلا، تاون هاوس، دوبلكس) and `UnitStatus` (متاحة، محجوزة، مباعة), plus a badge variant per status.
+- [x] T024 [P] Create `src/features/units/units.types.ts` (`UnitDto` per data-model.md › DTOs; `UnitInput = z.infer<typeof unitInputSchema>`; `UnitListQuery = z.infer<typeof unitListQuerySchema>`; `UnitPage = Page<UnitDto>`) and `src/features/units/units.keys.ts` (`unitKeys.all = ["units"]`, `list(query)`, `detail(id)`).
+- [x] T025 [P] Create `src/features/units/client/unit-labels.ts`: Arabic labels for `UnitType` (شقة، فيلا، تاون هاوس، دوبلكس) and `UnitStatus` (متاحة، محجوزة، مباعة), plus a badge variant per status.
 
 **Checkpoint**: `npm run lint && npm run typecheck && npm run test` and `npm run test:integration` pass. Shared code is ready.
 
