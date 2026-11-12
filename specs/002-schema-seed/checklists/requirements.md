@@ -31,7 +31,9 @@
 
 ## Notes
 
-- Validation passed on the first iteration.
+- Iteration 1: three issues fixed — email uniqueness made case-insensitive (FR-003, FR-012, new edge case; protects the phase 2 lockout); Story 4 scenario 2 aligned with FR-026 (at least 3 types); FR-027 "some clients have notes" made measurable (one per sales rep).
+- Iteration 2: all items pass.
+- Phase 0 test setup does not reset the DB with TRUNCATE, so the TRUNCATE block on payments and audit logs does not conflict with it.
 - Database terms (migration, UPDATE, DELETE, TRUNCATE, direct SQL) appear on purpose: in this phase the database is the acceptance surface, and the user's "done when" is phrased in those terms. No ORM, language, column type or trigger code is named; those are left to the plan.
 - FR-023 lists rules that this schema deliberately does NOT enforce, with the phase that owns each, so `/speckit-analyze` does not report them as gaps.
 - No [NEEDS CLARIFICATION] markers. The two "clarify focus" items from docs/phases.md (area precision, unit-type list) have defaults in Assumptions and should be confirmed in `/speckit-clarify`.

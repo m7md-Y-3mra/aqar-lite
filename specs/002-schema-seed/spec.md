@@ -26,7 +26,7 @@ A developer starts from an empty database and applies all migrations. Every enti
 
 1. **Given** an empty database, **When** all migrations are applied, **Then** they finish with no errors and every entity in Key Entities exists.
 2. **Given** a user record, **When** it is saved without a company or without a role, or with a role other than manager, sales rep or accountant, **Then** the database refuses it.
-3. **Given** a user with a given email in company A, **When** another user with the same email is saved in any company, **Then** the database refuses it.
+3. **Given** a user with a given email in company A, **When** another user with the same email (in any letter case) is saved in any company, **Then** the database refuses it.
 4. **Given** any record that points to another record (a unit to its company, a reservation to its unit, a contract to its reservation, and so on), **When** the target does not exist, **Then** the database refuses it.
 5. **Given** a record that other records point to (for example a unit with a reservation), **When** someone tries to delete it, **Then** the database refuses it instead of deleting the dependent records.
 
@@ -85,7 +85,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 **Acceptance Scenarios**:
 
 1. **Given** a migrated empty database, **When** the seed runs, **Then** there are exactly 2 companies, and each has exactly 1 manager, 1 accountant and 2 sales reps.
-2. **Given** the seeded data, **When** the units of each company are counted, **Then** each company has at least 10 available units, covering more than one type, more than one price and more than one area.
+2. **Given** the seeded data, **When** the units of each company are counted, **Then** each company has at least 10 available units, covering at least 3 types, more than one price and more than one area.
 3. **Given** the seeded data, **When** the clients of each sales rep are counted, **Then** each sales rep has at least 3 clients, and each client belongs to a sales rep of the same company.
 4. **Given** the seed already ran, **When** it runs a second time, **Then** it finishes with no error and the number of rows in every table is unchanged.
 5. **Given** the seeded users, **When** their stored passwords are inspected, **Then** none is stored as plain text; each is a one-way hash.
@@ -100,6 +100,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **Paid amount exactly equal to amount**: allowed (fully paid). Only above the amount is refused.
 - **Down payment of 0**: allowed on the contract. It means no down-payment installment is created (rule for phase 5).
 - **Failed login for an email that does not exist**: the audit row has no company and no user, but it must still record the email that was tried, so phase 2 can count recent failures per email.
+- **Email letter case**: `Ali@x.com` and `ali@x.com` are the same email. Otherwise an attacker could bypass the failed-login limit by changing the case.
 - **Duplicate phone numbers**: two clients with the same phone are allowed, even in the same company. A uniqueness error would reveal that another rep already has this client.
 - **Seed run on a database that already has data**: the seed does not create duplicates and does not fail.
 - **Deleting a parent record**: deleting a company, unit, client, reservation or contract that other records point to is refused, never cascaded.
@@ -113,7 +114,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 
 - **FR-001**: The system MUST store companies. Every other tenant record belongs to exactly one company.
 - **FR-002**: The system MUST store staff users. Each user belongs to exactly one company, has exactly one role (manager, sales rep or accountant), a name, an email and a hashed password.
-- **FR-003**: User email MUST be unique across all companies, because login has no company field.
+- **FR-003**: User email MUST be unique across all companies, because login has no company field. Uniqueness MUST ignore letter case and surrounding spaces: emails are stored trimmed and lowercased.
 - **FR-004**: The system MUST store login sessions linked to one user, with an expiry time. A session MUST store only a one-way hash of the session token, never the raw token.
 - **FR-005**: The system MUST store units with: company, project name (free text), unit number, type (from a fixed list), area, number of rooms, price, and status (available, reserved or sold). Status MUST allow only those three values.
 - **FR-006**: The system MUST store clients with: company, owning sales rep, name, phone and optional free-text notes.
@@ -122,7 +123,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **FR-009**: The system MUST store installments with: contract, position in the schedule (0 = down payment), due date (a calendar date, no time), amount and paid amount (default 0). Installment status (unpaid, partial, paid, overdue) MUST NOT be stored.
 - **FR-010**: The system MUST store payments with: contract, amount, the client-provided request key, and the time it was recorded.
 - **FR-011**: The system MUST store audit log rows with: company (optional), user (optional), action (failed login, price change, contract approval or payment), the affected record (optional), extra details, and the time it was written.
-- **FR-012**: A failed-login audit row MUST record the email that was tried, in a form that lets later phases count failed attempts for one email in a recent time window efficiently.
+- **FR-012**: A failed-login audit row MUST record the email that was tried, normalized the same way as FR-003 (trimmed, lowercased), in a form that lets later phases count failed attempts for one email in a recent time window efficiently.
 - **FR-013**: All money amounts MUST be stored as whole numbers of halalas. No fractional or floating-point money anywhere.
 
 **Integrity rules the database MUST enforce**
@@ -146,7 +147,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **FR-024**: The schema MUST be created only by migrations, and all migrations MUST apply on an empty database with no errors. Rules that the schema tool cannot express (for example the payment and audit protection) MUST be inside a migration too.
 - **FR-025**: The seed MUST create 2 companies. Each company MUST have exactly 1 manager, 1 accountant and 2 sales reps.
 - **FR-026**: Each company MUST have at least 10 units in the available status, using at least 3 different types, and with different prices and areas.
-- **FR-027**: Each sales rep MUST have at least 3 clients in the same company. At least some clients MUST have notes.
+- **FR-027**: Each sales rep MUST have at least 3 clients in the same company. At least one client of each sales rep MUST have notes.
 - **FR-028**: Seed passwords MUST be stored only as one-way hashes using the same hashing method the login will use. The plain-text passwords MUST appear only in the README, next to each account's email, role and company.
 - **FR-029**: Running the seed again on a database that already holds seed data MUST NOT create duplicates and MUST NOT fail.
 - **FR-030**: The seed MUST NOT create reservations, contracts, installments, payments or audit rows. Those come from real actions in later phases.
