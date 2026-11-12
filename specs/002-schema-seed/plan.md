@@ -72,7 +72,8 @@ The user approved all 8. None removes or changes an agreed field. Each one adds 
 2. **Email normalization CHECK** on `users.email` and on `LOGIN_FAILED` `meta.email`, which must also be present (FR-003, FR-012, R4).
 3. **TRUNCATE triggers** in addition to UPDATE/DELETE (Story 3 scenario 5, R5).
 4. **Extra small CHECKs**: unit project name and number trimmed and not empty (stops `"A-101 "` beating the
-   unique rule); `installments.seq >= 0`; idempotency key not empty.
+   unique rule); `installments.seq >= 0`; idempotency key not empty; session id shaped like a SHA-256 hex hash
+   (added after `/speckit-analyze` finding C1, R4a; approved 2026-11-12).
 5. **Extra indexes** for later queries: `units (company_id, status)`, `clients (company_id, sales_rep_id)`,
    `reservations (unit_id, expires_at)` and `(company_id, sales_rep_id)`, `sessions (user_id)`, `audit_logs (company_id, created_at)`.
 6. **Phase 0 file changed**: `tests/integration/setup/global-setup.ts` drops and recreates the test schema
@@ -144,7 +145,7 @@ Abbreviations: **SC** = `schema-constraints.test.ts`, **AO** = `append-only.test
 | FR-001/002, Story 1 sc.1: all entities exist after migrations | SC › "creates a full company → contract → installment chain" (positive path through every table); quickstart §1 |
 | Story 1 sc.2: user needs company and valid role | SC › "rejects a user without a company" (23502), "rejects an unknown role" (22P02) |
 | FR-003, Story 1 sc.3: email unique, case-insensitive | SC › "rejects a duplicate email" (23505 `users_email_key`), "rejects a non-normalized email" (23514 `users_email_normalized_check`) |
-| FR-004: session stores a hash id | data-model review; phase 2 tests the token flow |
+| FR-004: session stores a hash id | SC › "rejects a session id that is not a SHA-256 hex hash" (23514 `sessions_id_hash_check`); phase 2 tests the token flow |
 | FR-014, Story 1 sc.4: reference to a missing row | SC › "rejects a unit for a missing company" (23503) |
 | FR-015, Story 1 sc.5: no cascade delete | SC › "refuses to delete a unit that has a reservation" (23001); quickstart §3 |
 | FR-015a, Story 2 sc.11: no cross-company links | SC › "cross-company links": client→rep, reservation→unit, reservation→client, reservation→rep, contract→reservation (each 23503 + FK name) |

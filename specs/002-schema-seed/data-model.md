@@ -41,7 +41,7 @@ Types: `uuid` = `@db.Uuid` with `DEFAULT gen_random_uuid()`; `bigint` = halalas 
 
 | Field | Type | Rules |
 |---|---|---|
-| id | text | PK = hex SHA-256 of the token; the raw token is never stored |
+| id | text | PK = hex SHA-256 of the token; `CHECK id ~ '^[0-9a-f]{64}$'` so a raw token (base64url) can never be stored |
 | userId | uuid | FK → users; index |
 | expiresAt | tstz | |
 

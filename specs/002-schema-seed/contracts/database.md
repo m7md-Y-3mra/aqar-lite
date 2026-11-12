@@ -9,6 +9,7 @@ constraint name listed here (read from `error.meta.driverAdapterError.cause.orig
 
 | Rule | Constraint name | SQLSTATE |
 |---|---|---|
+| Session id is a SHA-256 hex hash (64 lowercase hex chars) | `sessions_id_hash_check` | 23514 |
 | Email unique | `users_email_key` | 23505 |
 | Email normalized (lowercase, trimmed, not empty) | `users_email_normalized_check` | 23514 |
 | Unit price > 0 | `units_price_check` | 23514 |
@@ -45,6 +46,7 @@ All names above were checked against the spike's generated `migration.sql` (Pris
 
 | Rule | Phase | How |
 |---|---|---|
+| Session id = `sha256(token)` as lowercase hex; the raw 32-byte token goes only in the cookie | 2 | the CHECK rejects anything else, e.g. the raw base64url token |
 | Login trims and lowercases the email (`trim().toLowerCase()`) **before the user lookup** and before writing `LOGIN_FAILED` | 2 | the database stores only lowercase emails (`users_email_normalized_check`), so `Ali@x.test` would find no user; and the CHECK on `LOGIN_FAILED` rejects an un-normalized email |
 | `LOGIN_FAILED` rows: `meta = { email }`, `company_id`/`user_id` set only when the email matched a user | 2 | lockout count uses the partial index on `meta ->> 'email'` |
 | Allowed unit status transitions | 3–5 | conditional `UPDATE … WHERE status = …` |

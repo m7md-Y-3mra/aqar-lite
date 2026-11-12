@@ -74,6 +74,14 @@ and a `postgres:18-alpine` container (2026-11-12). The spike schema is the one i
   `lower(email)` (rejected: lets mixed-case emails in, so login lookups would also need `lower()`).
 - **Contract for phase 2**: normalize with `trim().toLowerCase()` before every lookup and before writing `LOGIN_FAILED`.
 
+## R4a. Session id shape
+
+- **Decision**: `CHECK (id ~ '^[0-9a-f]{64}$')` named `sessions_id_hash_check` on `sessions.id` (spec FR-004).
+- **Rationale**: phase 2 stores `sha256(token)` as lowercase hex (64 chars). The raw token is 32 random bytes in base64url
+  (43 chars, with `-`, `_` and upper case), so it can never match. A phase 2 bug that stores the raw token fails loudly.
+- **Alternatives considered**: `bytea` with a length check (rejected: the hex string is simpler to compare and log-safe);
+  no check (rejected in `/speckit-analyze` finding C1: FR-004 had no proof).
+
 ## R5. Append-only payments and audit logs
 
 - **Decision**: a separate migration `append_only_guards` (created with `--create-only`, filled by hand) holds
