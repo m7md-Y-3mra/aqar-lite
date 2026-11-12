@@ -146,13 +146,13 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Tests for User Story 4 (write first; they must FAIL before T020–T022)
 
-- [ ] T018 [P] [US4] Create `tests/unit/prisma/seed-data.test.ts` (no DB) importing `SEED_DATA` and `SEED_PASSWORD` from `prisma/seed-data.ts`:
+- [x] T018 [P] [US4] Create `tests/unit/prisma/seed-data.test.ts` (no DB) importing `SEED_DATA` and `SEED_PASSWORD` from `prisma/seed-data.ts`:
   - exactly 2 companies; per company exactly 1 `MANAGER`, 1 `ACCOUNTANT`, 2 `SALES` (FR-025);
   - the 8 emails, roles and companies equal [contracts/seed-accounts.md](./contracts/seed-accounts.md); every email is lowercase and trimmed; `SEED_PASSWORD === "AqarLite#2026"`;
   - per company ≥10 units, all `AVAILABLE`; ≥3 distinct types; >1 distinct price; >1 distinct area; every price, area > 0 and rooms ≥ 0; `(projectName, number)` unique per company; project names and numbers trimmed (FR-026);
   - every sales rep has ≥3 clients, each client's company equals its rep's company; ≥1 client with notes per rep (FR-027);
   - all ids are unique UUIDs; prices are `bigint`.
-- [ ] T019 [P] [US4] Create `tests/integration/prisma/seed.test.ts` (seed assertions are scoped to seed ids/emails, because other test files share the database):
+- [x] T019 [P] [US4] Create `tests/integration/prisma/seed.test.ts` (seed assertions are scoped to seed ids/emails, because other test files share the database):
   - "creates 2 companies with 1 manager, 1 accountant, 2 sales reps each", "each company has ≥10 available units", "each sales rep has ≥3 clients in the same company" (call `runSeed(db)` once in `beforeAll`);
   - "every seed password hash starts with `$argon2id$` and verifies with the README password" (`verify` from `@node-rs/argon2`);
   - "seed creates no reservations, contracts, installments, payments or audit rows for seed companies" (FR-030);
@@ -162,14 +162,14 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Implementation for User Story 4
 
-- [ ] T020 [US4] Create `prisma/seed-data.ts`: export `SEED_PASSWORD = "AqarLite#2026"` and `SEED_DATA` (plain readonly constants, fixed UUIDs, `import type` only from the generated client for `Role` / `UnitType`): 2 companies and 8 users exactly as [contracts/seed-accounts.md](./contracts/seed-accounts.md) (fictional Arabic names); per company 12 `AVAILABLE` units over 3 Arabic project names, all 4 types, areas 85–450 m², rooms 1–7, prices 450,000–3,200,000 SAR as halala `bigint` literals with riyal comments; 3 clients per sales rep with Arabic names, `05xxxxxxxx` phones, notes on at least one per rep. Run T018: it passes.
-- [ ] T021 [US4] Create `prisma/run-seed.ts`: `export async function runSeed(db: PrismaClient, data = SEED_DATA): Promise<void>` (type-only import of `PrismaClient` from `../src/generated/prisma/client.ts`):
+- [x] T020 [US4] Create `prisma/seed-data.ts`: export `SEED_PASSWORD = "AqarLite#2026"` and `SEED_DATA` (plain readonly constants, fixed UUIDs, `import type` only from the generated client for `Role` / `UnitType`): 2 companies and 8 users exactly as [contracts/seed-accounts.md](./contracts/seed-accounts.md) (fictional Arabic names); per company 12 `AVAILABLE` units over 3 Arabic project names, all 4 types, areas 85–450 m², rooms 1–7, prices 450,000–3,200,000 SAR as halala `bigint` literals with riyal comments; 3 clients per sales rep with Arabic names, `05xxxxxxxx` phones, notes on at least one per rep. Run T018: it passes.
+- [x] T021 [US4] Create `prisma/run-seed.ts`: `export async function runSeed(db: PrismaClient, data = SEED_DATA): Promise<void>` (type-only import of `PrismaClient` from `../src/generated/prisma/client.ts`):
   1. if a company with `data.companies[0].id` exists → `process.stdout.write("Seed: seed data already present, skipping.\n")` and return;
   2. hash `SEED_PASSWORD` once per user with `hash()` from `@node-rs/argon2` (default Argon2id), **before** the transaction;
   3. in **one** `db.$transaction(async (tx) => …)`: `createMany` companies → users → units → clients, in that order (so a bad unit fails after companies and users were written, which the atomicity test relies on);
   4. print one summary line with the counts. No `console.log` (phase 0 lint).
-- [ ] T022 [US4] Replace `prisma/seed.ts` (phase 0 placeholder): create `PrismaClient` with `new PrismaPg({ connectionString: process.env.DATABASE_URL })` (fail with a clear message if unset), `await runSeed(prisma)`, `await prisma.$disconnect()` in `finally`, exit code 1 on error with the message only. Imports end in `.ts`.
-- [ ] T023 [US4] Run `npm run test && npm run test:integration` (T018, T019 green) and quickstart §4 against the app database (`npm run db:seed` twice; counts `2/8/24/12/0` both times). Commit T020–T023 as `feat: add idempotent seed with demo companies`.
+- [x] T022 [US4] Replace `prisma/seed.ts` (phase 0 placeholder): create `PrismaClient` with `new PrismaPg({ connectionString: process.env.DATABASE_URL })` (fail with a clear message if unset), `await runSeed(prisma)`, `await prisma.$disconnect()` in `finally`, exit code 1 on error with the message only. Imports end in `.ts`.
+- [x] T023 [US4] Run `npm run test && npm run test:integration` (T018, T019 green) and quickstart §4 against the app database (`npm run db:seed` twice; counts `2/8/24/12/0` both times). Commit T020–T023 as `feat: add idempotent seed with demo companies`.
 
 **Checkpoint**: all four user stories proven.
 
