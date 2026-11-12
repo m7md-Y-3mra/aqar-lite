@@ -18,7 +18,6 @@ Expected: all green. The integration run includes the tests named in the [plan's
 - "concurrency › release during an open reserve never frees the unit"
 - "expiry › expired reservation frees the unit and another rep can reserve it"
 - "ownership › rep cannot reserve for another rep's client"
-- `tests/integration/prisma/reservation-overlap-guard.test.ts` › "rejects an overlapping reservation for the same unit"
 
 ## 2. Reserve as a sales rep (Story 1)
 
@@ -46,7 +45,7 @@ Expected: all green. The integration run includes the tests named in the [plan's
 
 1. Make one reservation look old:
    ```bash
-   docker compose exec db psql -U postgres -d aqar -c "UPDATE reservations SET reserved_at = now() - interval '73 hours', expires_at = now() - interval '1 hour' WHERE id = '<id>';"
+   docker compose exec db psql -U postgres -d aqar -c "UPDATE reservations SET expires_at = now() - interval '1 hour' WHERE id = '<id>';"
    ```
    Adjust the user and database names to the compose file.
 2. Reload "الوحدات" as any user. **Expected**: the unit shows "متاحة", and "الحجوزات" no longer lists the reservation.

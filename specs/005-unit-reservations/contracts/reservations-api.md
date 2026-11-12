@@ -21,14 +21,14 @@ Reserve a unit for one of the rep's own clients.
 
 ```json
 { "data": {
-  "id": "uuid", "reservedAt": "2026-11-12T10:00:00.000Z", "expiresAt": "2026-11-15T10:00:00.000Z",
+  "id": "uuid", "expiresAt": "2026-11-15T10:00:00.000Z",
   "unit": { "id": "uuid", "projectName": "…", "number": "…" },
   "client": { "id": "uuid", "name": "…" },
   "salesRep": { "id": "uuid", "name": "…" }
 } }
 ```
 
-`expiresAt − reservedAt` is exactly 72 hours (DB clock).
+`expiresAt` is the database time of the reserve transaction plus exactly 72 hours.
 
 **Errors**:
 
@@ -37,7 +37,7 @@ Reserve a unit for one of the rep's own clients.
 | 400 | `VALIDATION_ERROR` + `fieldErrors.unitId` / `fieldErrors.clientId` | body not JSON; id missing or not a UUID |
 | 403 | `FORBIDDEN` | role is MANAGER or ACCOUNTANT |
 | 404 | `NOT_FOUND` | client not owned by the rep (another rep, another company, or missing); unit of another company or missing |
-| 409 | `UNIT_NOT_AVAILABLE` | unit RESERVED by an active reservation, or SOLD; lost a race; DB overlap guard |
+| 409 | `UNIT_NOT_AVAILABLE` | unit RESERVED by an active reservation, or SOLD; lost a race |
 
 On any error the unit's status is unchanged.
 

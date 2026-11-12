@@ -13,7 +13,6 @@ Each decision lists what was chosen, why, and what was rejected. "Phase 3" means
    2. `reserveUnitIfAvailable(user.companyId, input.unitId, tx)` from the units feature: one conditional update `WHERE id = $unitId AND company_id = $companyId AND status = 'AVAILABLE'` that sets `RESERVED` (agreed).
    3. 0 rows → `findUnitStatus(companyId, unitId, tx)`. No row → `NOT_FOUND` (404, another company or missing). A row → `UNIT_NOT_AVAILABLE` (409).
    4. 1 row → `insertReservation(...)` with the DB clock (R4). Return the new reservation.
-4. A `23P01` exclusion violation (R3) caught outside the transaction → `UNIT_NOT_AVAILABLE` (409). It can only happen if the code above has a bug.
 
 **Rationale**:
 - The conditional update takes the row lock. Under READ COMMITTED, a second reserve on the same unit waits, then re-checks `status = 'AVAILABLE'` on the committed row and matches 0 rows. Exactly one wins (FR-005).
@@ -22,7 +21,7 @@ Each decision lists what was chosen, why, and what was rejected. "Phase 3" means
 
 **Alternatives considered**:
 - `SELECT … FOR UPDATE`, then a status check, then an update. This is correct but needs an extra statement. The conditional update already gives the same guarantee.
-- Insert the reservation first and rely on the DB guard alone. Rejected: the unit status would still need a separate update, and the agreed design is the conditional update.
+- Insert the reservation first and rely on a database constraint alone. Rejected: the unit status would still need a separate update, and the agreed design is the conditional update (see R3).
 
 ## R2. Fix `releaseExpired` for concurrent reserves (changes phase 3 code)
 
@@ -45,7 +44,7 @@ Under READ COMMITTED, when this statement waits on a unit row locked by a concur
 - A commits.
 - Result: `unit=AVAILABLE active=1`. With the fix below: `unit=RESERVED active=1`.
 
-**Decision**: `releaseExpired(companyId, tx)` runs two statements inside the caller's transaction. `tx` becomes **required**.
+**Decision**: `releaseExpired(companyId, tx?)` runs two statements in one transaction: the caller's `tx` when given, otherwise its own `withTransaction`. The signature and the return value (the number of released units, from statement 2) stay as phase 3 has them, so phase 3's callers and its `units.repository.test.ts` do not change.
 
 1. Lock the candidates, in a fixed order:
    ```sql
@@ -65,9 +64,7 @@ Statement 1 waits for any in-flight reserve on those units to finish and then ho
 
 Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parameters (constitution VII). If the adapter binds the id as `text`, add `::uuid` (phase 3 R2 note).
 
-**Changes to phase 3 code**:
-- `units.repository.ts › releaseExpired`: two statements; `tx` required.
-- `units.service.ts › listUnits` and `getUnit`: run the release and the read in one `withTransaction`. `updateUnit` already has one.
+**Changes to phase 3 code**: only the body of `units.repository.ts › releaseExpired` (two statements, in one transaction). Its callers keep calling it the same way: `updateUnit` passes its `tx`, while `listUnits` and `getUnit` call it without one. The reserve transaction passes its `tx`.
 
 **Conditions this relies on (written in the README "Technical decisions")**:
 - The isolation level is READ COMMITTED, which is the Postgres and Prisma default. Under REPEATABLE READ, statement 2 would reuse the transaction's first snapshot and the fix would not work.
@@ -82,58 +79,31 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 - A per-company advisory lock taken by every release and every reserve. Correct, but it makes every units-list read in a company wait for every other one.
 - Store the active expiry on the unit row, so the re-check is row-local. Rejected: it duplicates `reservations.expires_at` in a second place (phase 1: "anything that can be computed is not stored").
 
-## R3. Database guard: no two overlapping reservations for one unit (schema change)
+## R3. Database guard against overlapping reservations: not in this phase
 
-**Decision**: one new migration, `<timestamp>_reservation_overlap_guard`:
+**Decision** (user, 2026-11-12): no schema change in this phase. No `reserved_at` column, no `btree_gist`, no exclusion constraint. The existing tests in `schema-constraints.test.ts` and `units.repository.test.ts` stay unchanged.
 
-1. `CREATE EXTENSION IF NOT EXISTS btree_gist;`
-2. Add `reserved_at timestamptz(3) NOT NULL DEFAULT now()`. Backfill existing rows with `expires_at - interval '72 hours'` before setting `NOT NULL`. The seed has no reservations, so normally there is nothing to backfill.
-3. `CHECK (expires_at > reserved_at)`.
-4. `EXCLUDE USING gist (unit_id WITH =, tstzrange(reserved_at, expires_at) WITH &&)`, named `reservations_no_overlap`.
+**Rationale**:
+- The conditional `UPDATE … WHERE status = 'AVAILABLE'` on the unit row lets only one reservation win, and the concurrency tests (R10) prove it on real Postgres.
+- The release fix (R2) closes the one path where the unit status could disagree with the reservations.
+- Time is better spent on contracts and payments.
 
-`prisma/schema.prisma` gains `reservedAt DateTime @default(now()) @map("reserved_at") @db.Timestamptz(3)`. The extension, the check and the exclusion constraint are raw SQL in the migration file, like the phase 1 triggers (AGENTS §5).
-
-**Why a schema change**:
-- Constitution V says integrity rules live in the database too.
-- "A unit can have at most one active reservation" is the core integrity rule of this phase, and R2 shows how easily code alone can get it wrong.
-- A partial unique index cannot express it, because "active" depends on `now()`, and index predicates must be immutable.
-- An exclusion constraint on the time window can express it. Two reservations for one unit can never cover the same moment, so at most one is active at any time.
-- A range computed only from `expires_at` (`expires_at - interval '72 hours'`) is not allowed in an index: `timestamptz - interval` is STABLE, not IMMUTABLE. That is why the start time is stored. `reserved_at` also records when the reservation was made.
-
-**Evidence**: tested on `postgres:18-alpine`:
-- `btree_gist` 1.8 is available.
-- An expired reservation followed by a new one for the same unit is accepted.
-- A second overlapping one is refused with SQLSTATE `23P01`.
-
-**Mapping**: `src/server/db.ts` gains `isExclusionViolation(err, constraint)`, next to phase 3's `isUniqueViolation`. The reserve service maps `reservations_no_overlap` to `UNIT_NOT_AVAILABLE`.
-
-**Checks during implementation (fallback if any fails)**:
-- After the migration, `prisma migrate dev --create-only` must produce an empty migration, so Prisma does not try to drop the constraint's index.
-- The integration-test database reset must recreate the extension (the migration uses `IF NOT EXISTS`).
-- If either fails and cannot be fixed in 15 minutes, drop steps 1, 3 and 4 and keep only the code guard. Write the guard into the README "Not done" with this design.
-
-**Test impact** (checked on this branch and on both sibling branches):
-- `tests/integration/support/db-fixtures.ts › makeReservation` gains an optional `expiresAt`, and sets `reservedAt = expiresAt − 72 h`. Tests that need an expired reservation pass a past `expiresAt` instead of updating `expiresAt` afterwards. An update that moves only `expiresAt` before `reserved_at` breaks the `CHECK`.
-- `tests/integration/prisma/schema-constraints.test.ts`:
-  - Several cases call `makeReservation` on the unit that `makeContractChain` already reserved (around lines 206, 230, 254, 269, 376, 427, 457). That second, overlapping reservation is refused by the exclusion constraint. Give those cases their own unit, or an expired window.
-  - The raw `INSERT`s around lines 198, 222 and 246 set `expires_at = new Date()` and expect a foreign-key error (`23503`). `CHECK`s run before foreign keys, so these could now fail with `23514` instead. Give them a future `expires_at`.
-- Phase 3's `tests/integration/features/units/server/units.repository.test.ts`:
-  - `reservedUnit(expired)` and "active reservation stays RESERVED" update `expiresAt` into the past. The latter also creates a second reservation that overlaps an active one.
-  - These tests move to the fixture's `expiresAt` parameter, with non-overlapping windows. They also call `releaseExpired` with a required `tx`, and can no longer expect a returned row count (two statements).
-- No test may create two overlapping reservations for one unit, except the overlap-guard test, which expects the refusal.
-
-**Alternatives considered**: code only (rejected, see above); a trigger that counts active reservations (it reads `now()` and has the same snapshot problem as R2).
+**Recorded in README "Not done"**: an exclusion constraint as a second, database-level guard against overlapping reservations of one unit.
+- It needs a stored start time (`reserved_at`), because `timestamptz − interval` is not immutable and cannot appear in an index.
+- It needs the `btree_gist` extension, which is available in `postgres:18-alpine`.
+- Constraint: `EXCLUDE USING gist (unit_id WITH =, tstzrange(reserved_at, expires_at) WITH &&)`.
+- A quick check on Postgres 18 refused an overlapping row with `23P01`, and accepted a new reservation after the old one had expired.
 
 ## R4. One clock: the database's `now()`
 
 **Decision**:
-- The reservation is inserted with `$queryRaw`: `INSERT … (reserved_at, expires_at) VALUES (now(), now() + make_interval(hours => ${RESERVATION_HOURS}))` `RETURNING …`.
+- The reservation is inserted with `$queryRaw`: `INSERT … (expires_at) VALUES (now() + make_interval(hours => ${RESERVATION_HOURS}))` `RETURNING …`.
 - `RESERVATION_HOURS = 72` lives in `src/features/reservations/domain/reservation-window.ts`.
 - List reads get the DB time once with `SELECT now()` (`dbNow(tx)` in the reservations repository). They pass it to the "active" filter and return it as `asOf`.
 
 **Rationale**:
 - `releaseExpired` compares with the DB's `now()`. If expiry were computed in JS, a small clock difference between app and DB could make a reservation look active to one and expired to the other.
-- Inside one transaction `now()` is fixed, so `expires_at − reserved_at` is exactly 72 hours (SC-002, asserted directly).
+- Inside one transaction `now()` is fixed: it is the transaction's start time. The test reads the DB time just before and just after the call, and asserts `expiresAt − 72 h` lies between the two (SC-002).
 
 **Alternatives considered**: `new Date()` plus `addHours` in the service. It is simpler, but it uses two clocks.
 
@@ -156,7 +126,7 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 
 **Decision**:
 - `units.repository.ts › findUnits` and `findUnit` also select the unit's active reservation's `expiresAt` (Prisma relation `reservations: { where: { expiresAt: { gt: now } }, select: { expiresAt: true }, take: 1 }`).
-- `now` is the DB time from the same transaction (R4; the units feature gets its own small `dbNow`, because it cannot import the reservations repository).
+- `now` is the DB time (R4). The units feature gets its own small `dbNow(tx?)`, because it cannot import the reservations repository.
 - `UnitDto` gains `reservedUntil: string | null`: an ISO string while RESERVED, otherwise `null`. Client and rep are never selected.
 
 **Rationale**:

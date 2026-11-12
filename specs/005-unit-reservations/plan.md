@@ -14,7 +14,7 @@ Add the `reservations` feature.
   - It runs in one transaction: release expired reservations, then one conditional `UPDATE … WHERE status = 'AVAILABLE'` on the unit, then insert the reservation with the DB clock (`now()`, `now() + 72 h`).
   - Under concurrent requests exactly one wins. The others get `UNIT_NOT_AVAILABLE` (409) with an Arabic message.
 - **Expiry**: expiry stays lazy, with no cron. This phase **fixes phase 3's `releaseExpired`**, which loses to a concurrent reserve under READ COMMITTED (reproduced on Postgres 18; [research R2](./research.md#r2-fix-releaseexpired-for-concurrent-reserves-changes-phase-3-code)). It now locks the candidates, then re-checks them in a second statement.
-- **Database guard**: one migration adds `reserved_at` and an exclusion constraint, so the database itself refuses two overlapping reservations of one unit ([R3](./research.md#r3-database-guard-no-two-overlapping-reservations-for-one-unit-schema-change)).
+- **No schema change**: a database-level overlap guard (an exclusion constraint) is recorded in README "Not done" ([R3](./research.md#r3-database-guard-against-overlapping-reservations-not-in-this-phase)).
 - **Lists**: reps see their own active reservations and managers see the company's, soonest expiry first, with expiry in Saudi time and time left. The units list shows a reserved unit's expiry, but never its client or rep.
 - **UI**: the units page opens a reserve dialog from `?reserve=<unitId>`. The page composes it into the units list as a slot (AGENTS §2, amended in `e3f19ed`).
 
@@ -26,11 +26,10 @@ The main proofs are service-level integration tests on real Postgres. One determ
 
 **Primary Dependencies**: as in phases 0–3: Next.js App Router (Route Handlers), React, TanStack Query, Zod, React Hook Form + `@hookform/resolvers`, Prisma + `@prisma/adapter-pg`, `date-fns` + `@date-fns/tz`, sonner, shadcn/`radix-ui`. **No new npm dependency.**
 - The shadcn `dialog` primitive is added with the shadcn CLI if phases 2 and 3 did not add it. It is built on `radix-ui`, which phase 2 approved.
-- `btree_gist` is a Postgres contrib extension that ships with `postgres:18-alpine`. It is not an npm package.
 
 **Storage**: PostgreSQL 18.
 - Tables: `reservations` (insert and read), `units` (status updates), `clients` and `users` (read), `contracts` (read, for "active").
-- One new migration (R3).
+- No migration.
 
 **Testing**: Vitest. Unit tests in `tests/unit` (no DB). Integration tests in `tests/integration` on the real test database, rebuilt every run.
 
@@ -55,7 +54,6 @@ The main proofs are service-level integration tests on real Postgres. One determ
 - 1 new feature.
 - 3 API handlers in 2 route files.
 - 1 page; 1 changed page (units).
-- 1 migration.
 - About 6 new test files and 3 changed ones.
 
 ## Constitution Check
@@ -68,7 +66,7 @@ The main proofs are service-level integration tests on real Postgres. One determ
 | II | Server-Side Authorization | PASS | The role is checked in the service: reserve and options are SALES only, the list refuses ACCOUNTANT. Ownership: the client lookup is scoped by `salesRepId`, and the list is scoped by `salesRepId` for SALES. `reserveInputSchema` is a `.pick()` of `unitId` and `clientId` only. Proven by "role checks", "ownership", "ignores hand-sent fields". |
 | III | Financial Accuracy | PASS (n/a) | No money is written. `UnitDto.price` is unchanged (integer halalas). Dates are shown in `Asia/Riyadh` with `date-fns` + `@date-fns/tz`. |
 | IV | Atomic and Concurrency-Safe | PASS | Reserve is one transaction with a conditional update (agreed). The concurrency test uses `Promise.all` on real Postgres (agreed), plus a just-expired variant and a deterministic release-vs-reserve test. The release fix (R2) keeps the RESERVED → AVAILABLE transition correct under concurrency. Allowed transitions only. |
-| V | Database-Enforced Integrity | PASS | New migration (R3): `CHECK (expires_at > reserved_at)` and an `EXCLUDE` constraint, so one unit can never have overlapping reservations. FKs from phase 1. No delete or update code for reservations. |
+| V | Database-Enforced Integrity | PASS | Phase 1's composite FKs keep every reservation inside one company. The "one active reservation per unit" rule is enforced by the database's row lock on the conditional `UPDATE … WHERE status = 'AVAILABLE'` (proven by R10's tests). A second guard (an exclusion constraint) was left out by the user's decision and is recorded in README "Not done" (R3). No delete or update code for reservations, and no schema change. |
 | VI | Layered Architecture | PASS | `route.ts` → `reservations.routes.ts` → `reservations.service.ts` → `reservations.repository.ts`. Units and clients are used only through their `server/index.ts`, in the allowed direction (reservations → units, clients). Units never imports reservations: it reads the `reservations` table only inside its own repository (R6). No client component imports another feature (R7). Strict TS, no `any`. |
 | VII | Security by Default | PASS | Zod on the body and every query param. Raw SQL only as tagged templates. Generic Arabic errors, including one 409 message for every "not available" case. No secrets. No audit rows are required for reservations (spec Assumptions). |
 | VIII | Scope Discipline | PASS | No cancel, no history page, no per-rep cap, no picker search (README "Not done"). No new npm dependency. Assumptions are recorded in the README. |
@@ -83,16 +81,16 @@ All four agreed decisions are kept:
 
 These points add to or refine them:
 
-1. **Schema change** (R3): a new migration adds `reservations.reserved_at`, `btree_gist`, `CHECK (expires_at > reserved_at)` and the `reservations_no_overlap` exclusion constraint.
-   - **Why**: constitution V wants this phase's core integrity rule in the database. R2 shows how easily code alone gets it wrong.
-   - An index cannot use `now()`, and `timestamptz − interval` is not immutable. So the window's start must be stored.
-   - **Fallback**: if Prisma migrate tries to drop the constraint, or the test reset cannot recreate it, keep the code guard only and document the constraint in the README "Not done".
-2. **Phase 3's `releaseExpired` changes** (R2): it now runs two statements (lock the candidates in id order, then a re-checked update), and `tx` is required. Phase 3's `listUnits` and `getUnit` wrap their release and read in one transaction.
+1. **Phase 3's `releaseExpired` body changes** (R2): it now runs two statements in one transaction: lock the candidates in id order, then a re-checked update. Its signature (`companyId, tx?`) and its return value (the count) stay the same, so phase 3's callers and tests do not change.
    - **Why**: the single-statement version can free a unit that a concurrent transaction has just reserved, leaving two active reservations. This was reproduced on Postgres 18.
    - The agreed call order (release first, then reserve) is unchanged.
-3. **0 rows → 404 or 409** (R1): after a 0-row update, the service re-reads the unit inside the transaction. A unit missing from the session company → `NOT_FOUND`. Otherwise → `UNIT_NOT_AVAILABLE`.
-   - **Why**: spec FR-007 requires 404 for another company's unit. This refines the agreed "0 rows → 409" without changing it for units of the user's company.
+2. **0 rows → 404 or 409** (R1; approved 2026-11-12): after a 0-row update, the service re-reads the unit inside the transaction. A unit missing from the session company → `NOT_FOUND`. Otherwise → `UNIT_NOT_AVAILABLE`.
+   - **Why**: spec FR-007 requires 404 for another company's unit.
+3. **Transaction rules** (R2; approved 2026-11-12):
+   - Lock order: release first, then lock or update any unit or contract row. Phase 5 approval follows this too.
+   - No nested transactions: inside `withTransaction`, call only repository functions that take `tx`, never another service.
 4. **Expiry from the DB clock** (R4): `expires_at = now() + 72 hours` is computed by Postgres, the same clock `releaseExpired` uses. It is not computed in JS.
+5. **No database overlap guard** (R3; user decision 2026-11-12): no schema change. The exclusion-constraint design goes to README "Not done".
 
 ## Project Structure
 
@@ -120,11 +118,9 @@ Legend: **new**, **change**.
 
 ```text
 # Database
-prisma/schema.prisma                                                    change  Reservation + reservedAt DateTime @default(now()) @map("reserved_at") @db.Timestamptz(3)
-prisma/migrations/<timestamp>_reservation_overlap_guard/migration.sql   new     add column (backfill expires_at − 72h), btree_gist, CHECK, EXCLUDE reservations_no_overlap (R3)
+(no schema change; R3)
 
 # Server infrastructure
-src/server/db.ts                          change  + isExclusionViolation(err, constraint) next to phase 3's isUniqueViolation
 src/server/http/error-codes.ts            change  + UNIT_NOT_AVAILABLE: 409
 
 # Shared
@@ -135,8 +131,8 @@ src/shared/components/ui/dialog.tsx       new*    shadcn CLI (*only if phases 2�
 
 # Units feature (phase 3 files changed by this phase)
 src/features/units/units.types.ts                      P3 change  UnitDto + reservedUntil: string | null
-src/features/units/server/units.repository.ts          P3 change  releaseExpired(companyId, tx) → lock-then-recheck, tx required (R2); + dbNow(tx); findUnits/findUnit select active reservation expiresAt (R6); + reserveUnitIfAvailable(companyId, unitId, tx), findUnitStatus(companyId, unitId, tx) (R1)
-src/features/units/server/units.service.ts             P3 change  listUnits/getUnit: release + read in one withTransaction; mapper adds reservedUntil
+src/features/units/server/units.repository.ts          P3 change  releaseExpired(companyId, tx?) body → lock-then-recheck in one transaction, same signature and return (R2); + dbNow(tx?); findUnits/findUnit select active reservation expiresAt (R6); + reserveUnitIfAvailable(companyId, unitId, tx), findUnitStatus(companyId, unitId, tx) (R1)
+src/features/units/server/units.service.ts             P3 change  listUnits/getUnit pass dbNow() to the reads; mapper adds reservedUntil
 src/features/units/server/index.ts                     P3 change  + reserveUnitIfAvailable, findUnitStatus exports (releaseExpired, getUnit already exported)
 src/features/units/client/units-page/units-page.tsx    P3 change  + prop reserveDialog?: ReactNode, rendered once; passes onReserve to the table
 src/features/units/client/units-page/use-units-page.ts P3 change  + openReserve(unitId): router.replace with ?reserve=<id>, other params kept
@@ -173,18 +169,14 @@ src/app/api/reservations/options/route.ts new  export { GET }
 tests/unit/features/reservations/reservations.schemas.test.ts                   new
 tests/unit/shared/lib/dates.test.ts                                             new
 tests/unit/shared/lib/navigation.test.ts                                        change  reservations item: MANAGER + SALES, not ACCOUNTANT
-tests/integration/support/db-fixtures.ts                                        change  makeReservation({ …, expiresAt? }) sets reservedAt = expiresAt − 72h (R3 test impact)
-tests/integration/prisma/schema-constraints.test.ts                             change  no second overlapping reservation on a chain's unit; raw INSERTs use a future expires_at (R3 test impact)
-tests/integration/features/units/server/units.repository.test.ts                P3 change  expired fixtures via expiresAt param, no overlapping windows; releaseExpired(companyId, tx); "expiresAt equals now" case
 tests/integration/features/reservations/server/reservations.repository.test.ts  new     "active" boundary at exactly now
 tests/integration/support/pg-locks.ts                                           new     waitForLockWait(match, timeoutMs): polls pg_stat_activity for wait_event_type = 'Lock'
-tests/integration/prisma/reservation-overlap-guard.test.ts                      new
 tests/integration/features/reservations/server/reservations.service.test.ts     new
 tests/integration/features/reservations/server/reservations.routes.test.ts      new     (phase 2 http + session helpers)
 tests/integration/features/units/server/units.service.test.ts                   P3 change  reservedUntil; release runs in the read transaction
 
 # Docs
-README.md        change  Assumptions (spec), Technical decisions (R1, R2, R3, R4, R7), "Not done" (manual cancel; per-rep cap; client search in the picker), Security note on R2
+README.md        change  Assumptions (spec), Technical decisions (R1, R2, R4, R7), "Not done" (manual cancel; per-rep cap; client search in the picker; exclusion constraint as a second DB guard against overlapping reservations, R3), Security note on R2
 ```
 
 **Structure Decision**: the AGENTS.md feature layout.
@@ -198,7 +190,7 @@ README.md        change  Assumptions (spec), Technical decisions (R1, R2, R3, R4
   1. Not SALES → `FORBIDDEN`.
   2. `getClient(user, input.clientId)` → `NOT_FOUND` if it is not the rep's own.
   3. `withTransaction`: `releaseExpired` → `reserveUnitIfAvailable` → 0 rows: `findUnitStatus` (none → `NOT_FOUND`, else `UNIT_NOT_AVAILABLE`) → `insertReservation` → DTO.
-  4. Catch `isExclusionViolation(err, "reservations_no_overlap")` outside the transaction → `UNIT_NOT_AVAILABLE`. ([R1](./research.md#r1-the-reserve-transaction))
+  ([R1](./research.md#r1-the-reserve-transaction))
 - **`listActiveReservations(user, query)`**:
   1. ACCOUNTANT → `FORBIDDEN`.
   2. `withTransaction`: `releaseExpired` → `now = dbNow(tx)` → find + count (SALES: `salesRepId = userId`) → `{ …page, asOf }`. ([R5](./research.md#r5-active-and-the-reservations-list))
@@ -231,15 +223,15 @@ The route handlers only parse (body: `readJson` + `reserveInputSchema`; query: `
 |---|---|---|
 | FR-001 only SALES reserve (403) | `svc` › "role checks › MANAGER cannot reserve", "role checks › ACCOUNTANT cannot reserve" (both: unit still AVAILABLE, 0 rows); `routes` › "POST as accountant → 403" | Auto |
 | FR-002 rep reserves available unit for own client | `svc` › "reserve › rep reserves an available unit for own client" (DTO, unit RESERVED, row salesRepId = rep) | Auto |
-| FR-003 exactly 72 h, server-set fields | `svc` › "reserve › expiresAt − reservedAt is exactly 72 hours", "reserve › ignores hand-sent expiresAt, salesRepId, companyId, status" (input parsed through `reserveInputSchema` with extra keys); `tests/unit/features/reservations/reservations.schemas.test.ts` › "strips expiresAt, salesRepId, companyId, status" | Auto |
+| FR-003 exactly 72 h, server-set fields | `svc` › "reserve › expiresAt − 72 h lies between the DB times read just before and just after the call", "reserve › ignores hand-sent expiresAt, salesRepId, companyId, status" (input parsed through `reserveInputSchema` with extra keys); `tests/unit/features/reservations/reservations.schemas.test.ts` › "strips expiresAt, salesRepId, companyId, status" | Auto |
 | FR-004 one active per unit; RESERVED/SOLD → 409 | `svc` › "conflict › reserved unit → UNIT_NOT_AVAILABLE, nothing changes", "conflict › sold unit → UNIT_NOT_AVAILABLE"; `routes` › "409 body has code UNIT_NOT_AVAILABLE and the Arabic message" | Auto |
 | FR-005 concurrent → exactly one (user "done when" 1; SC-001) | `svc` › "concurrency › two reps, one available unit: exactly one wins" (`Promise.allSettled`, ×10: 1 fulfilled, 1 `UNIT_NOT_AVAILABLE`, 1 row, unit RESERVED for the winner's client) | Auto |
 | R2 release never frees a just-reserved unit | `svc` › "concurrency › two reps, one just-expired unit: exactly one wins" (×10); "concurrency › release during an open reserve never frees the unit" (deterministic, R10.3, fails on phase 3's single statement) | Auto |
 | FR-006 not for another rep's client (user "done when" 3) | `svc` › "ownership › rep cannot reserve for another rep's client" (NOT_FOUND, 0 reservations, unit AVAILABLE); `routes` › "POST with another rep's client → 404" | Auto |
 | FR-007 other company → 404 | `svc` › "tenant isolation › unit of company B → NOT_FOUND, B's unit unchanged", "tenant isolation › client of company B → NOT_FOUND" | Auto |
-| FR-008 all-or-nothing | `svc` › "atomic › insert failure rolls back the unit to AVAILABLE" (the exclusion guard is triggered by a pre-inserted overlapping row on an AVAILABLE unit: `UNIT_NOT_AVAILABLE`, unit still AVAILABLE); every refusal test asserts the status is unchanged | Auto |
+| FR-008 all-or-nothing | every refusal test (403, 404, 409, 400) asserts the unit's status and the reservation count are unchanged; the unit update and the insert share one `withTransaction` (R1) | Auto |
 | FR-009 validation 400 + field errors | `reservations.schemas.test.ts` › "rejects missing / non-UUID unitId and clientId"; `routes` › "400 with fieldErrors.unitId and fieldErrors.clientId" | Auto |
-| FR-010 active = future expiry and no approved contract | `svc` › "list › excludes expired", "list › excludes a reservation whose contract is approved", "list › includes one with a draft contract" (contract rows from `makeContract`); `tests/integration/features/reservations/server/reservations.repository.test.ts` › "findActiveReservations excludes a row whose expiresAt equals now" (passes `now` = the fixture's `expiresAt`); `units.repository.test.ts` (P3) › "releaseExpired frees a unit whose expiresAt equals the transaction now" (fixture `expiresAt` read back from `SELECT now()` inside the same transaction) | Auto |
+| FR-010 active = future expiry and no approved contract | `svc` › "list › excludes expired", "list › excludes a reservation whose contract is approved", "list › includes one with a draft contract" (contract rows from `makeContract`); `tests/integration/features/reservations/server/reservations.repository.test.ts` › "findActiveReservations excludes a row whose expiresAt equals now" (passes `now` = the fixture's `expiresAt`); `reservations.repository.test.ts` › "releaseExpired frees a unit whose expiresAt equals the transaction now" (in one test transaction: read `now()`, set the fixture's `expiresAt` to it, call `releaseExpired(companyId, tx)`) | Auto |
 | FR-011 expired → unit available, no manual action (user "done when" 2; SC-003) | `svc` › "expiry › expired reservation frees the unit and another rep can reserve it" (fixture `expiresAt` in the past → `listUnits` shows AVAILABLE → rep2 `reserveUnit` succeeds); `units.service.test.ts` (P3) › existing "expiry › …" tests still pass with the new release | Auto |
 | FR-012 sold never returns | `units.service.test.ts` (P3) › "expiry › SOLD with expired reservation stays SOLD" (kept) | Auto |
 | FR-013 expired kept as history | `svc` › "expiry › the expired reservation row still exists after the unit is re-reserved" | Auto |
@@ -256,8 +248,7 @@ The route handlers only parse (body: `readJson` + `reserveInputSchema`; query: `
 | FR-023 nav for MANAGER + SALES | `tests/unit/shared/lib/navigation.test.ts` › "reservations item for MANAGER and SALES, not ACCOUNTANT" | Auto |
 | FR-024 Arabic RTL, mobile + desktop | quickstart §7 | Manual |
 | FR-025 the test list | all rows above marked Auto; `routes` covers status codes over HTTP | Auto |
-| R3 DB guard | `tests/integration/prisma/reservation-overlap-guard.test.ts` › "rejects an overlapping reservation for the same unit (23P01)", "accepts a new reservation after the old one expired", "accepts overlapping windows on different units", "rejects expires_at <= reserved_at" | Auto |
-| R4 one clock | covered by FR-003 "exactly 72 hours" (both values from one `now()`) | Auto |
+| R4 one clock | covered by FR-003 (`expiresAt` from the DB's `now()`) | Auto |
 
 ## Complexity Tracking
 

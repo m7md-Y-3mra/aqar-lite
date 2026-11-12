@@ -1,6 +1,6 @@
 # Data Model: Unit Reservations
 
-This phase uses the tables from phase 1. Its one schema change is a migration on `reservations`: a `reserved_at` column, a check, and an exclusion constraint ([research R3](./research.md#r3-database-guard-no-two-overlapping-reservations-for-one-unit-schema-change)). It adds no table.
+This phase uses the tables from phase 1 with **no schema change**: no migration, no new column ([research R3](./research.md#r3-database-guard-against-overlapping-reservations-not-in-this-phase)).
 
 ## Reservation (`reservations`)
 
@@ -11,10 +11,9 @@ This phase uses the tables from phase 1. Its one schema change is a migration on
 | unitId | uuid | FK → units (same company) | request body (validated) |
 | clientId | uuid | FK → clients (same company) | request body (validated; must be owned by the rep) |
 | salesRepId | uuid | FK → users (same company) | session `userId` |
-| **reservedAt** (new) | timestamptz(3) | `NOT NULL DEFAULT now()` | DB `now()` |
-| expiresAt | timestamptz(3) | `NOT NULL`; **new**: `CHECK (expires_at > reserved_at)` | DB `now() + 72 hours` |
+| expiresAt | timestamptz(3) | `NOT NULL` | DB `now() + 72 hours` |
 
-**New constraint**: `reservations_no_overlap EXCLUDE USING gist (unit_id WITH =, tstzrange(reserved_at, expires_at) WITH &&)` (needs `btree_gist`). Two reservations of one unit can never cover the same moment.
+**At most one active reservation per unit**: enforced by the conditional unit update in the reserve transaction (research R1, R2), not by a constraint. The constraint is listed in README "Not done" (R3).
 
 **Input schema** (`reservations.schemas.ts`):
 - `reservationSchema` = `{ unitId: z.uuid(), clientId: z.uuid() }`.
@@ -48,7 +47,6 @@ This phase uses the tables from phase 1. Its one schema change is a migration on
 type ReservationDto = {
   id: string;
   expiresAt: string;                  // ISO
-  reservedAt: string;                 // ISO
   unit: { id: string; projectName: string; number: string };
   client: { id: string; name: string };
   salesRep: { id: string; name: string };   // shown in the manager's view only (UI)
