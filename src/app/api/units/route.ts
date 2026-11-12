@@ -1,1 +1,1 @@
-export { listUnitsHandler as GET } from "@/features/units/server";
+export { listUnitsHandler as GET, createUnitHandler as POST } from "@/features/units/server";

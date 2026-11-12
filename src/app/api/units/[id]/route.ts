@@ -1,1 +1,1 @@
-export { getUnitHandler as GET } from "@/features/units/server";
+export { getUnitHandler as GET, updateUnitHandler as PATCH } from "@/features/units/server";
