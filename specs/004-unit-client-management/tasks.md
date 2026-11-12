@@ -76,7 +76,7 @@ description: "Task list for phase 3: units and clients"
 
   For `toRiyalText`: 150050 → `"1500.5"`, 150000 → `"1500"`, 5 → `"0.05"`, and it round-trips through `parseRiyals`.
 - [x] T006 [P] Write `tests/unit/shared/lib/search-params.test.ts` for `toQueryInput`: "empty string → undefined", "repeated key → array", "same result for URLSearchParams and record".
-- [ ] T007 [P] Write `tests/unit/shared/lib/form-errors.test.ts` for `applyApiError(err, setError)` with a stub `setError`: "maps 400 fieldErrors to each field" and "maps 409 to root". A non-`ApiError` → root with the generic message.
+- [X] T007 [P] Write `tests/unit/shared/lib/form-errors.test.ts` for `applyApiError(err, setError)` with a stub `setError`: "maps 400 fieldErrors to each field" and "maps 409 to root". A non-`ApiError` → root with the generic message.
 - [x] T008 [P] Add the case "never uses dangerouslySetInnerHTML" to `tests/unit/architecture/conventions.test.ts`. It walks `src/` (using the existing `walk`) and fails if any `.ts`/`.tsx` file contains `dangerouslySetInnerHTML`.
 
 ### Implementation
@@ -103,13 +103,13 @@ description: "Task list for phase 3: units and clients"
   - `toSkip(page, pageSize)`.
 
   Export `digits` for the units price filters.
-- [ ] T015 [P] Create `src/shared/lib/api-client.ts`, only if T002 found it missing. It has `class ApiError extends Error { status; code; fieldErrors? }` and `apiFetch<T>(url, init?)`, which sends JSON, returns `body.data`, and throws `ApiError` from `body.error`.
-- [ ] T016 Create `src/shared/lib/form-errors.ts` with `applyApiError(err: unknown, setError)`:
+- [X] T015 [P] Create `src/shared/lib/api-client.ts`, only if T002 found it missing. It has `class ApiError extends Error { status; code; fieldErrors? }` and `apiFetch<T>(url, init?)`, which sends JSON, returns `body.data`, and throws `ApiError` from `body.error`.
+- [X] T016 Create `src/shared/lib/form-errors.ts` with `applyApiError(err: unknown, setError)`:
   - `ApiError` with status 400 and `fieldErrors` → `setError(field, { message })` for each field;
   - anything else → `setError("root", { message })`, using `err.message` or the generic Arabic message.
 
   It depends on T015 or phase 2's `ApiError`. T007 must pass.
-- [ ] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@4.23.0 add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
+- [X] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@4.23.0 add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
 - [ ] T018 [P] Create `src/shared/components/money-input/money-input.tsx` and `index.ts` (research R5):
   - a client component;
   - props `{ value: number | undefined; onChange(halalas: number): void; id; name; disabled?; aria-invalid? }`;
