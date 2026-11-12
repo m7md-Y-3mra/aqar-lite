@@ -155,7 +155,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Write `tests/unit/architecture/import-rules.test.ts` using `new ESLint({ cwd: <repo root> })` and `lintText(code, { filePath })` with virtual paths. Each case asserts whether there is a `no-restricted-imports` error. **Errors**:
+- [X] T038 [P] [US3] Write `tests/unit/architecture/import-rules.test.ts` using `new ESLint({ cwd: <repo root> })` and `lintText(code, { filePath })` with virtual paths. Each case asserts whether there is a `no-restricted-imports` error. **Errors**:
   - (1) `src/features/demo/server/demo.service.ts` importing `@prisma/client`
   - (2) same file importing `@/generated/prisma/client`
   - (3) same file importing `../../../generated/prisma/client`
@@ -172,13 +172,13 @@ description: "Task list for Phase 0: Project Setup and Tooling"
   - (12) `tests/integration/setup/global-setup.ts` importing `pg`
 
   It must fail until T040 exists.
-- [ ] T039 [P] [US3] Write `tests/unit/architecture/conventions.test.ts`. It walks the file system with `node:fs`, skipping `src/generated` and `.gitkeep`, and asserts:
+- [X] T039 [P] [US3] Write `tests/unit/architecture/conventions.test.ts`. It walks the file system with `node:fs`, skipping `src/generated` and `.gitkeep`, and asserts:
   - (a) every `.ts`/`.tsx` file under `src/server/` and `src/features/*/server/` has `import "server-only";` as its first statement;
   - (b) every file and folder name under `src/` and `tests/` matches `^[a-z0-9]+(?:[-.][a-z0-9]+)*$` (kebab-case, dots allowed for `.test.ts`, `.repository.ts`, …). Next.js route-segment folders are also accepted when their inner name is kebab-case: dynamic `[id]`, catch-all `[...slug]`, optional catch-all `[[...slug]]` and route groups `(auth)`. Next.js file names (`layout.tsx`, `page.tsx`, `route.ts`, `globals.css`, `instrumentation.ts`) already match. Include a self-check case that `[id]` and `(auth)` pass and `UnitList` and `unit_list` fail.
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Extend `eslint.config.mjs` with the layer rules from research.md R6.
+- [X] T040 [US3] Extend `eslint.config.mjs` with the layer rules from research.md R6.
   - Define constants:
     - `ORM_PATTERNS` = `[{ group: ["@prisma/*", "@/generated/*", "**/generated/prisma", "**/generated/prisma/*"], message: "Only *.repository.ts files and src/server/db.ts may import the ORM." }]`, plus the paths `pg`.
     - `SERVER_PATTERNS` = `[{ group: ["@/server/*", "@/features/*/server/*", "**/server/*", "server-only"], allowTypeImports: true, message: "Client code must not import server code." }]`.
@@ -187,7 +187,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
     - (b) `files: ["src/features/*/client/**", "src/shared/**"]` → `no-restricted-imports: ["error", { patterns: [...ORM_PATTERNS, ...SERVER_PATTERNS] }]`. Both lists are repeated on purpose: flat config replaces the options, it does not merge them.
     - (c) `files: ["src/**/*.repository.ts", "src/server/db.ts", "prisma/**", "scripts/**", "tests/integration/setup/**"]` → `no-restricted-imports: "off"`.
   - Make T038 pass.
-- [ ] T041 [US3] Validate US3 with quickstart.md §5: add a temporary rule-breaking service file, see `npm run lint` fail with the file name, and delete it. Add a temporary `"use client"` component importing `@/server/db`, then run `npx next build` with lint skipped: confirm the build fails on `server-only`, and delete the component. `npm run lint && npm run test` pass afterwards.
+- [X] T041 [US3] Validate US3 with quickstart.md §5: add a temporary rule-breaking service file, see `npm run lint` fail with the file name, and delete it. Add a temporary `"use client"` component importing `@/server/db`, then run `npx next build` with lint skipped: confirm the build fails on `server-only`, and delete the component. `npm run lint && npm run test` pass afterwards.
 
 **Checkpoint**: Breaking a layer rule fails lint, and a test proves it.
 
