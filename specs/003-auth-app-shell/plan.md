@@ -25,14 +25,12 @@ One new migration adds a CHECK on that reason. The UI adds:
 Integration tests prove the three "done when" items in ways that can fail: logout token replay, the 6th login with
 the correct password, and foreign/missing vs own `Origin`.
 
-## Decision needed before implement
+## UI primitives decision (approved 2026-11-12)
 
-**UI primitives (research R13)**: the shadcn `radix-nova` style needs the `radix-ui` package, which is not
-installed. AGENTS.md §9 says to ask before adding a package.
-- **A (recommended)**: add `radix-ui` and generate `button`, `input`, `label`, `card` and `sheet`.
-- **B**: no new package; hand-write those in the shadcn style.
-
-Only `src/shared/components/ui/` and the shell's mobile menu differ.
+Research R13: the user approved adding `radix-ui`, the package the shadcn `radix-nova` style imports. Install it
+pinned to an exact version, like every other dependency, and generate the shadcn `button`, `input`, `label`,
+`card` and `sheet` into `src/shared/components/ui/`. The shell's mobile menu uses `sheet`. After the install,
+`npm audit` must still show no high or critical issues.
 
 ## Technical Context
 
@@ -40,7 +38,7 @@ Only `src/shared/components/ui/` and the shell's mobile menu differ.
 
 **Primary Dependencies**: Next.js 16.4.6 (App Router, Route Handlers), React 19.3.1, Prisma 7.10.1 +
 `@prisma/adapter-pg`, `@node-rs/argon2` 2.2.2, Zod 4.6.7, TanStack Query 5.107.1, React Hook Form 7.92.0 +
-`@hookform/resolvers`, `sonner`, pino. **New dependency: only `radix-ui` if option A is approved.**
+`@hookform/resolvers`, `sonner`, pino. **New dependency: `radix-ui` (approved 2026-11-12, research R13).**
 
 **Storage**: PostgreSQL 18. Tables `users`, `companies`, `sessions` and `audit_logs` from phase 1; one new CHECK
 migration.
@@ -76,10 +74,10 @@ Source: `.specify/memory/constitution.md`.
 | V | Database-Enforced Integrity | PASS | New migration `login_failed_reason_check` (research R7). Existing: session id hash shape, normalized emails, append-only audit log. No applied migration is edited. |
 | VI | Layered Feature Architecture | PASS | `auth.routes.ts` → `auth.service.ts` → repositories. The service uses `withTransaction` and passes `tx`. Prisma only in `*.repository.ts`; raw SQL only as tagged templates in repositories. The shell is in `src/shared/components` and imports no feature. Every server file starts with `import "server-only"`. |
 | VII | Security by Default | PASS with justified exception | Argon2id; `HttpOnly`/`Secure`/`SameSite=Lax` cookie; logout deletes the row; generic login message; equal hashing work; per-email lock; Zod on input; existing Origin check; failed logins audited; pino redaction covers password/token/cookie. **Exception E2**: `/login` cannot call `requireUser()`, because it is the page for users without a session. It calls `getCurrentUser()` and redirects logged-in users. **Accepted risks** (spec clarification Q2): no per-IP limit, victim lockout. Both are in the README. |
-| VIII | Scope Discipline and Simplicity | PASS (pending R13) | No sign-up, user management, password reset or dashboard. `GET /api/auth/me` is the only addition beyond the stories; the tests need a protected route (research R10). The new package needs approval. |
+| VIII | Scope Discipline and Simplicity | PASS | No sign-up, user management, password reset or dashboard. `GET /api/auth/me` is the only addition beyond the stories; the tests need a protected route (research R10). The one new package, `radix-ui`, was approved by the user (R13). |
 
-**Post-design re-check**: unchanged. E1 and E2 are justified in Complexity Tracking. VIII stays pending until the
-user answers R13.
+**Post-design re-check**: all PASS. E1 and E2 are justified in Complexity Tracking. `radix-ui` approved
+2026-11-12 (R13).
 
 **Agent context**: no agent-context script exists for the `codex` integration (research R15). Not run.
 
@@ -137,7 +135,7 @@ src/shared/
 │   ├── navigation.ts             # new: NAV_ITEMS (Home), navItemsFor(role)
 │   └── error-messages.ts         # change: INVALID_CREDENTIALS message
 └── components/
-    ├── ui/                       # new: button, input, label, card (+ sheet if option A)
+    ├── ui/                       # new (shadcn): button, input, label, card, sheet
     ├── app-shell/                # new: app-shell.tsx, use-app-shell.ts (menu + logout), types.ts, index.ts
     │   └── components/nav-menu/  # new: nav list used in sidebar and mobile menu
     └── home-welcome/             # new: home-welcome.tsx, index.ts

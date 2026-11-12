@@ -173,13 +173,13 @@ Vitest 5.1. Results marked **Observed** were checked in this worktree on 2026-11
 - **Observed**: `components.json` uses the shadcn `radix-nova` style, whose components import from the
   `radix-ui` package. `radix-ui` is **not** in `package.json`; the `@radix-ui/*` folders in `node_modules` are
   transitive and must not be imported. `src/shared/components/ui/` is empty.
-- **Decision needed (user)**: AGENTS.md §9 says to ask before adding a package.
-  - **Option A (recommended)**: add `radix-ui` and generate shadcn `button`, `input`, `label`, `card` and `sheet`
-    (mobile menu). It is the standard the project chose (AGENTS.md "shadcn/ui"). Later phases need `dialog`,
-    `select` and `dropdown-menu` from it anyway.
-  - **Option B**: no new package now. Write `button`, `input`, `label` and `card` by hand in the shadcn style, and
-    a hand-made mobile menu (`aria-expanded`, Escape closes, focus returns to the toggle).
-  - The plan is written so either option fits. Only the files under `src/shared/components/ui/` differ.
+- **Decision (approved by the user 2026-11-12)**: add `radix-ui`, pinned to an exact version, and generate the
+  shadcn `button`, `input`, `label`, `card` and `sheet` (mobile menu) into `src/shared/components/ui/`.
+- **Rationale**: shadcn/ui is the project's chosen UI kit (AGENTS.md Section B), and `radix-nova` needs this
+  package. Later phases need `dialog`, `select` and `dropdown-menu` from it too. Radix gives the mobile menu
+  focus trapping, Escape to close and focus return without hand-written code.
+- **Alternatives considered**: hand-written primitives and menu with no new package (rejected by the user:
+  more code to own and test for the same result).
 
 ## R14. Navigation map
 
