@@ -132,22 +132,25 @@ The same feature schema (`unitListQuerySchema`, `clientListQuerySchema`) then pa
 
 **Alternatives considered**: A pre-check with `findFirst`. It has a race, and it costs a second query.
 
-## R7. UI primitives with no new dependency
+## R7. UI primitives: reuse phase 2's shadcn setup
 
-**Decision**: Hand-write shadcn-style primitives in `src/shared/components/ui/`. None of them imports `radix-ui`:
-- `button.tsx`: a `buttonVariants` cva. Links use `<Link className={buttonVariants()}>` instead of `asChild`.
-- `input.tsx`, `textarea.tsx`, `label.tsx`: native `<label>`.
-- `native-select.tsx`: a native `<select>`.
-- `table.tsx`, `badge.tsx`, `skeleton.tsx`, `alert.tsx`.
+**Update 2026-11-12**: phase 2 (research R13 in `specs/003-auth-app-shell`) got user approval to add `radix-ui` and generates the shadcn `button`, `input`, `label`, `card` and `sheet`. This phase therefore adds no package of its own.
 
-If phase 2 already added `button`, `input` or `label`, they are reused.
+**Decision**:
+- Reuse phase 2's `button`, `input` and `label` from `src/shared/components/ui/`.
+- Generate the rest with the shadcn CLI, using the existing `components.json`: `npx shadcn@<pinned version phase 2 used> add textarea native-select table badge skeleton alert`.
+- If the CLI wants to install any package other than `radix-ui`, stop and ask.
+- Links styled as buttons use `<Link className={buttonVariants()}>` (or `Button asChild` if phase 2's `button` supports it).
+- Status, type and sort pickers use `native-select`, not the Radix `select`.
 
 **Rationale**:
-- `components.json` uses the `radix-nova` style, so `shadcn add` would install `radix-ui`. AGENTS §9 says no new package without asking.
-- Native `<select>` is also better on mobile.
-- `cva`, `clsx` and `tailwind-merge` are already installed.
+- One source for primitives. No hand-written copies that drift from phase 2's versions.
+- `radix-ui` is already approved, so the CLI output is allowed.
+- A native `<select>` works better on mobile and needs no portal or focus handling.
 
-**Alternatives considered**: `shadcn add select` (Radix). It needs a new dependency.
+**Alternatives considered**:
+- Hand-written primitives (the earlier plan). Rejected now that phase 2 brings the shadcn setup.
+- The Radix `select`. Heavier than needed for 3–5 fixed options.
 
 ## R8. Detail and edit pages return 404 without fetching the API
 

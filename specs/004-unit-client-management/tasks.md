@@ -109,7 +109,7 @@ description: "Task list for phase 3: units and clients"
   - anything else → `setError("root", { message })`, using `err.message` or the generic Arabic message.
 
   It depends on T015 or phase 2's `ApiError`. T007 must pass.
-- [ ] T017 [P] Create the UI primitives in `src/shared/components/ui/`. Create `button.tsx` (`buttonVariants` cva + `Button`; no `asChild`, no radix), `input.tsx` and `label.tsx` (native `<label>`) only if T002 found them missing. Always create `textarea.tsx`, `native-select.tsx` (styled native `<select>`), `table.tsx` (shadcn plain Table parts), `badge.tsx`, `skeleton.tsx` and `alert.tsx`. Use `cn` from `src/shared/lib/utils.ts`, logical classes only, and no new dependency (research R7).
+- [ ] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@<version phase 2 used> add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
 - [ ] T018 [P] Create `src/shared/components/money-input/money-input.tsx` and `index.ts` (research R5):
   - a client component;
   - props `{ value: number | undefined; onChange(halalas: number): void; id; name; disabled?; aria-invalid? }`;

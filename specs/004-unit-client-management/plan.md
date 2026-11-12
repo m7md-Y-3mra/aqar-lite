@@ -30,7 +30,7 @@ The main proofs are service-level integration tests on real Postgres.
 
 **Language/Version**: TypeScript 6 (strict), Node 22 LTS
 
-**Primary Dependencies**: Next.js 16 (App Router, Route Handlers), React 19, TanStack Query 5, Zod 4, React Hook Form 7 + `@hookform/resolvers`, Prisma 7 + `@prisma/adapter-pg`, Tailwind 4, sonner. **No new dependency** (research R7).
+**Primary Dependencies**: Next.js 16 (App Router, Route Handlers), React 19, TanStack Query 5, Zod 4, React Hook Form 7 + `@hookform/resolvers`, Prisma 7 + `@prisma/adapter-pg`, Tailwind 4, sonner, shadcn/`radix-ui` (added and approved in phase 2). **No new dependency in this phase** (research R7).
 
 **Storage**: PostgreSQL. Phase 1 tables `units`, `clients`, `reservations` (read only), `audit_logs` (insert only). One new migration with check constraints only (R9).
 
@@ -68,7 +68,7 @@ The main proofs are service-level integration tests on real Postgres.
 | V | Database-Enforced Integrity | PASS | Existing price/area/rooms/trim checks and the unique `(company, project, number)` index are reused. The new migration adds client name/phone checks and a unit price cap (R9). Audit rows are append-only (phase 1 triggers). |
 | VI | Layered Architecture | PASS | Flow: `route.ts` → `<f>.routes.ts` → `<f>.service.ts` → `<f>.repository.ts`. Only repositories and `src/server/db.ts` touch Prisma (enforced by lint). `units` and `clients` do not import each other. Strict TS, no `any`. |
 | VII | Security by Default | PASS | Zod on every body, query and path id. Raw SQL only as a tagged template (bound parameters). Notes are rendered as text, and `dangerouslySetInnerHTML` is banned by a test (R10). Errors are generic Arabic messages. `PRICE_CHANGED` is audited. |
-| VIII | Scope Discipline | PASS | No delete, no client search, no unit detail page beyond the edit form, no new dependency. Assumptions go to the README. |
+| VIII | Scope Discipline | PASS | No delete, no client search, no unit detail page beyond the edit form, no new dependency of this phase (`radix-ui` comes from phase 2, approved there). Assumptions go to the README. |
 
 ## Departures from the agreed plan notes
 
@@ -129,15 +129,15 @@ src/shared/lib/search-params.ts           new     toQueryInput(URLSearchParams |
 src/shared/lib/pagination.ts              new     paginationFields (page, pageSize zod), Page<T>, toSkip(page, pageSize)
 src/shared/lib/api-client.ts              P2?     apiFetch<T>(url, init): unwraps { data } / throws ApiError { status, code, message, fieldErrors }
 src/shared/lib/form-errors.ts             new     applyApiError(err, setError): 400 fieldErrors → setError(field); 409/other → setError("root")
-src/shared/components/ui/button.tsx       P2?     buttonVariants (cva) + Button; no radix (R7)
-src/shared/components/ui/input.tsx        P2?
-src/shared/components/ui/label.tsx        P2?     native <label>
-src/shared/components/ui/textarea.tsx     new
-src/shared/components/ui/native-select.tsx new    native <select>
-src/shared/components/ui/table.tsx        new     shadcn plain Table
-src/shared/components/ui/badge.tsx        new
-src/shared/components/ui/skeleton.tsx     new
-src/shared/components/ui/alert.tsx        new
+src/shared/components/ui/button.tsx       P2      from phase 2 (shadcn); reused (R7)
+src/shared/components/ui/input.tsx        P2      from phase 2 (shadcn); reused
+src/shared/components/ui/label.tsx        P2      from phase 2 (shadcn); reused
+src/shared/components/ui/textarea.tsx     new     shadcn CLI (R7)
+src/shared/components/ui/native-select.tsx new    shadcn CLI; native <select>
+src/shared/components/ui/table.tsx        new     shadcn CLI; plain Table
+src/shared/components/ui/badge.tsx        new     shadcn CLI
+src/shared/components/ui/skeleton.tsx     new     shadcn CLI
+src/shared/components/ui/alert.tsx        new     shadcn CLI
 src/shared/components/money-input/money-input.tsx   new   riyal text in local state, halalas into the form (R5)
 src/shared/components/money-input/index.ts          new
 src/shared/components/pagination-nav/pagination-nav.tsx  new   previous/next + "page X of Y"; builds hrefs from the current query
