@@ -177,36 +177,36 @@ description: "Task list for phase 3: units and clients"
 
   Create `src/features/units/server/index.ts` exporting `listUnits`, `getUnit`, `releaseExpired` and the handlers.
 - [X] T031 [P] [US1] Create `src/app/api/units/route.ts` (`export { listUnitsHandler as GET } from "@/features/units/server"`) and `src/app/api/units/[id]/route.ts` (`export { getUnitHandler as GET }`). T027 must pass.
-- [ ] T032 [P] [US1] Create `src/features/units/client/units.queries.ts`:
+- [X] T032 [P] [US1] Create `src/features/units/client/units.queries.ts`:
   - `unitListOptions(query)` = `queryOptions({ queryKey: unitKeys.list(query), queryFn: () => apiFetch<UnitPage>("/api/units?" + params) })`, which builds params only from defined query values;
   - `unitDetailOptions(id)` the same way, with `unitKeys.detail(id)`.
-- [ ] T033 [P] [US1] Create `src/features/units/client/units-page/components/unit-status-badge/unit-status-badge.tsx` and `index.ts` (a `Badge` with the label and variant from `unit-labels.ts`).
-- [ ] T034 [P] [US1] Create `src/features/units/client/units-page/components/units-table/units-table.tsx` and `index.ts`:
+- [X] T033 [P] [US1] Create `src/features/units/client/units-page/components/unit-status-badge/unit-status-badge.tsx` and `index.ts` (a `Badge` with the label and variant from `unit-labels.ts`).
+- [X] T034 [P] [US1] Create `src/features/units/client/units-page/components/units-table/units-table.tsx` and `index.ts`:
   - props `{ units: UnitDto[]; canEdit: boolean; dimmed: boolean }`;
   - shadcn `Table` with columns: project, number, type, area (م²), rooms, price (`formatRiyals`), status (`UnitStatusBadge`), and an edit link to `/units/{id}/edit` only when `canEdit`;
   - wrapped in `overflow-x-auto`.
-- [ ] T035 [P] [US1] Create `src/features/units/client/units-page/components/units-filters/units-filters.tsx` and `index.ts`:
+- [X] T035 [P] [US1] Create `src/features/units/client/units-page/components/units-filters/units-filters.tsx` and `index.ts`:
   - props `{ query: UnitListQuery; onApply(next: Partial<UnitListQuery>) }`;
   - a status `NativeSelect` (with "الكل"), `MoneyInput` for min and max price, a sort select ("بدون"/السعر/المساحة) and an order select;
   - "تطبيق" and "مسح" buttons.
-- [ ] T036 [US1] Create `src/features/units/client/units-page/use-units-page.ts`:
+- [X] T036 [US1] Create `src/features/units/client/units-page/use-units-page.ts`:
   - reads `useSearchParams()`, then `toQueryInput` and `unitListQuerySchema.safeParse`;
   - `useQuery({ ...unitListOptions(query), placeholderData: keepPreviousData, enabled: parse.success })`;
   - `setFilters(next)` writes the URL with `router.push` and resets `page` to 1;
   - `setPage(p)`.
-- [ ] T037 [US1] Create `src/features/units/client/units-page/units-page.tsx` and `index.ts`:
+- [X] T037 [US1] Create `src/features/units/client/units-page/units-page.tsx` and `index.ts`:
   - a client component with props `{ role }`;
   - invalid URL → `ErrorState` with `resetHref="/units"`;
   - `isPending` → `TableSkeleton`; `isError` → `ErrorState` with `onRetry={refetch}`;
   - empty → `EmptyState` ("لا توجد وحدات مطابقة", with a clear-filters link when filters are set);
   - otherwise `UnitsFilters` + `UnitsTable` (`dimmed` when `isPlaceholderData`) + `PaginationNav`;
   - a title of "الوحدات".
-- [ ] T038 [US1] Create `src/app/(app)/units/page.tsx` (phase 2's authenticated route group):
+- [X] T038 [US1] Create `src/app/(app)/units/page.tsx` (phase 2's authenticated route group):
   - `const user = await requireUser()`;
   - `const parsed = unitListQuerySchema.safeParse(toQueryInput(await searchParams))`;
   - if successful, `await queryClient.prefetchQuery({ queryKey: unitKeys.list(parsed.data), queryFn: () => listUnits(user, parsed.data) })` with `getQueryClient()`;
   - return `<HydrationBoundary state={dehydrate(queryClient)}><UnitsPage role={user.role} /></HydrationBoundary>`.
-- [ ] T039 [US1] Add a "الوحدات" link (all roles) to the phase 2 navigation component named in T002.
+- [X] T039 [US1] Add a "الوحدات" link (all roles) to the phase 2 navigation component named in T002.
 
 **Checkpoint**: US1 works alone. T026 and T027 pass, and quickstart §3 is OK.
 
