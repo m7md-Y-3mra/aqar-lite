@@ -13,7 +13,8 @@ Used only by tooling, not by the app (not in the app schema):
 
 | Variable | Used by | Default |
 |---|---|---|
-| `TEST_DATABASE_URL` | `vitest.integration.config.ts` | `postgresql://aqar:aqar@localhost:5432/aqar_test` |
+| `TEST_DATABASE_URL` | `vitest.integration.config.ts` | `postgresql://aqar:aqar@localhost:5433/aqar_test` |
+| `DB_HOST_PORT` | `docker-compose.yml` (host port for `db`, bound to `127.0.0.1`) | `5433` |
 
 ## Failure output (example)
 

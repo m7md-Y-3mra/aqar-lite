@@ -230,7 +230,7 @@ would hold the real data.
   An existing volume needs `docker compose down -v` once; the README says so.
 - **Separate URL**: tests never read the app's `DATABASE_URL` from the developer's environment.
   `vitest.integration.config.ts` reads `TEST_DATABASE_URL` (default
-  `postgresql://aqar:aqar@localhost:5432/aqar_test`) and sets `test.env.DATABASE_URL` to that value
+  `postgresql://aqar:aqar@localhost:5433/aqar_test`) and sets `test.env.DATABASE_URL` to that value
   for the test workers. `globalSetup` uses the same value for `prisma migrate deploy`.
 - **Guard**: `tests/integration/setup/global-setup.ts` aborts unless the database name ends in `_test`,
   so a wrong URL can never migrate or wipe the app database.

@@ -124,7 +124,7 @@ no `next-themes`, no `eslint-config-prettier` (no stylistic ESLint rules are ena
   `prisma` is a **runtime** dependency because the entrypoint runs `prisma migrate deploy`.
 - **Entrypoint** `docker/app/entrypoint.sh` (`set -eu`): check env → `prisma migrate deploy` →
   `prisma db seed` (the seed skips itself when data exists; empty in phase 0) → `exec next start`.
-- **Compose**: `db` = `postgres:18-alpine`, healthcheck `pg_isready`, named volume `db-data` mounted at `/var/lib/postgresql` (checked: the 18 image sets `PGDATA=/var/lib/postgresql/18/docker` and declares `VOLUME /var/lib/postgresql`; the old `/var/lib/postgresql/data` mount is wrong for 18), port 5432,
+- **Compose**: `db` = `postgres:18-alpine`, healthcheck `pg_isready`, host port `127.0.0.1:${DB_HOST_PORT:-5433}` (loopback only: not reachable from the network; 5433 avoids clashing with a host Postgres on 5432), named volume `db-data` mounted at `/var/lib/postgresql` (checked: the 18 image sets `PGDATA=/var/lib/postgresql/18/docker` and declares `VOLUME /var/lib/postgresql`; the old `/var/lib/postgresql/data` mount is wrong for 18), port 5432,
   `docker/db/init/01-create-test-db.sql` mounted into `/docker-entrypoint-initdb.d` (creates
   `aqar_test` on first start only). `app` builds the Dockerfile, `depends_on: db: condition: service_healthy`,
   port 3000, `environment:` holds non-secret local development values (no `.env` needed).
@@ -139,7 +139,7 @@ no `next-themes`, no `eslint-config-prettier` (no stylistic ESLint rules are ena
     alias `server-only` → `server-only/empty.js`, `test.env` sets **all** required variables with fake values.
   - `vitest.integration.config.ts`: `tests/integration/**/*.test.ts`, same aliases,
     `fileParallelism: false`, `test.env` sets all required variables, with `DATABASE_URL` =
-    `TEST_DATABASE_URL` (default `postgresql://aqar:aqar@localhost:5432/aqar_test`).
+    `TEST_DATABASE_URL` (default `postgresql://aqar:aqar@localhost:5433/aqar_test`).
     `globalSetup` (`tests/integration/setup/global-setup.ts`):
     1. refuses to run unless the database name ends in `_test`;
     2. checks the connection and fails with "Test database not reachable … run `docker compose up -d db`";

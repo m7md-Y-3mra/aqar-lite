@@ -24,7 +24,7 @@
    2. `prisma migrate deploy`
    3. `prisma db seed` (the seed skips itself when data exists)
    4. `exec next start -H 0.0.0.0 -p 3000`
-3. Ports on the host: app `3000`, db `5432`.
+3. Ports on the host: app `3000` (all interfaces), db `127.0.0.1:5433` (loopback only; override with `DB_HOST_PORT`).
 
 ## CI (`.github/workflows/ci.yml`)
 
