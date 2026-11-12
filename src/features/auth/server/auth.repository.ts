@@ -18,3 +18,7 @@ export function findUserByEmail(email: string, tx: DbClient = getDb()) {
     },
   });
 }
+
+export function lockLoginEmail(email: string, tx: Tx) {
+  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${email}, 0))`;
+}

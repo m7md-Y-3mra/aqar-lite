@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { loginHandler } from "@/features/auth/server/auth.routes";
 import { hashSessionToken, SESSION_TTL_MS } from "@/server/auth/session-token";
 import { getDb } from "@/server/db";
 import { makeCompany, makeUserWithPassword } from "../../support/db-fixtures";
+import { loginFailures } from "../../support/audit";
 import { apiRequest, getSetCookie, readJson } from "../../support/http";
 
 const PASSWORD = "AqarLite#2026";
@@ -102,5 +104,60 @@ describe("POST /api/auth/login", () => {
         fieldErrors: { email: expect.any(Array), password: expect.any(Array) },
       },
     });
+  });
+});
+
+describe("failed-login audits", () => {
+  it("returns identical errors and records normalized known and unknown identities without passwords", async () => {
+    const unknown = `${randomUUID()}@unknown.test`;
+    const password = "secret-never-audited";
+    const before = Date.now();
+    const knownResponse = await postLogin({ email: ` ${email.toUpperCase()} `, password });
+    const unknownResponse = await postLogin({ email: ` ${unknown.toUpperCase()} `, password });
+    const after = Date.now();
+    expect(knownResponse.status).toBe(401);
+    expect(unknownResponse.status).toBe(401);
+    expect(await readJson(knownResponse)).toEqual(await readJson(unknownResponse));
+    for (const [address, userId, companyId] of [
+      [email, user.id, user.companyId],
+      [unknown, null, null],
+    ] as const) {
+      const rows = await loginFailures(address);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        action: "LOGIN_FAILED",
+        userId,
+        companyId,
+        entityId: null,
+        meta: { email: address, reason: "invalid_credentials" },
+      });
+      expect(rows[0]!.createdAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(rows[0]!.createdAt.getTime()).toBeLessThanOrEqual(after);
+      expect(JSON.stringify(rows.map((row) => row.meta))).not.toContain(password);
+    }
+    expect(knownResponse.headers.get("set-cookie")).toBeNull();
+    expect(unknownResponse.headers.get("set-cookie")).toBeNull();
+    await expect(getDb().session.count({ where: { userId: user.id } })).resolves.toBe(0);
+  });
+
+  it("does not audit invalid input or successful logins", async () => {
+    const invalid = await postLogin({ email, password: "" });
+    expect(invalid.status).toBe(400);
+    expect(await loginFailures(email)).toEqual([]);
+    const success = await postLogin({ email, password: PASSWORD });
+    expect(success.status).toBe(200);
+    expect(await loginFailures(email)).toEqual([]);
+  });
+
+  it("attributes failures to each account's company", async () => {
+    const otherCompany = await makeCompany();
+    const other = await makeUserWithPassword(otherCompany.id, PASSWORD);
+    expect(otherCompany.id).not.toBe(user.companyId);
+    for (const account of [{ email, user }, other]) {
+      expect((await postLogin({ email: account.email, password: "wrong" })).status).toBe(401);
+      const rows = await loginFailures(account.email);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ userId: account.user.id, companyId: account.user.companyId });
+    }
   });
 });
