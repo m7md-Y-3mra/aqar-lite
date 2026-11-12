@@ -12,6 +12,14 @@
 
 > **Dependency**: Phase 0 (`001-project-setup`) is not on `main` yet. This branch was cut from `main` at the user's request. Before `/speckit-implement`, phase 0 must be merged into `main` and this branch rebased onto it, because the migrations, seed and integration tests need the project, the database container and the test database from phase 0.
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: Unit area precision: whole square meters or decimals? → A: Whole square meters only (e.g. 145).
+- Q: Which unit types exist? → A: Four residential types only: apartment, villa, townhouse, duplex.
+- Q: Should the database refuse links between records of different companies? → A: Yes. Reservation → unit, client and sales rep; client → sales rep; contract → reservation must all be in the same company, enforced by the database.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Complete data model from an empty database (Priority: P1)
@@ -52,6 +60,7 @@ A reviewer, or a bug in the code, tries to write data that breaks a business rul
 8. **Given** a contract with an installment at position 1, **When** a second installment at position 1 is saved for the same contract, **Then** the database refuses it.
 9. **Given** a contract, **When** a payment with an amount of zero or less is saved, **Then** the database refuses it.
 10. **Given** a payment on a contract with request key K, **When** a second payment with key K is saved on the same contract, **Then** the database refuses it; the same key on a different contract is accepted.
+11. **Given** a unit, a client and a sales rep of company B, **When** a reservation of company A that points to any of them is saved, **Then** the database refuses it. The same holds for a client of company A whose sales rep is in company B, and for a contract of company A whose reservation is in company B.
 
 ---
 
@@ -103,6 +112,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **Email letter case**: `Ali@x.com` and `ali@x.com` are the same email. Otherwise an attacker could bypass the failed-login limit by changing the case.
 - **Duplicate phone numbers**: two clients with the same phone are allowed, even in the same company. A uniqueness error would reveal that another rep already has this client.
 - **Seed run on a database that already has data**: the seed does not create duplicates and does not fail.
+- **Link across companies**: a reservation, client or contract that points to a record of another company is refused by the database, even if the referenced record exists (FR-015a).
 - **Deleting a parent record**: deleting a company, unit, client, reservation or contract that other records point to is refused, never cascaded.
 - **Integration tests and append-only tables**: test cleanup cannot delete payments or audit rows, so tests need a cleanup method that does not depend on deleting them (see Assumptions).
 
@@ -116,7 +126,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **FR-002**: The system MUST store staff users. Each user belongs to exactly one company, has exactly one role (manager, sales rep or accountant), a name, an email and a hashed password.
 - **FR-003**: User email MUST be unique across all companies, because login has no company field. Uniqueness MUST ignore letter case and surrounding spaces: emails are stored trimmed and lowercased.
 - **FR-004**: The system MUST store login sessions linked to one user, with an expiry time. A session MUST store only a one-way hash of the session token, never the raw token.
-- **FR-005**: The system MUST store units with: company, project name (free text), unit number, type (from a fixed list), area, number of rooms, price, and status (available, reserved or sold). Status MUST allow only those three values.
+- **FR-005**: The system MUST store units with: company, project name (free text), unit number, type (apartment, villa, townhouse or duplex), area (whole square meters), number of rooms, price, and status (available, reserved or sold). Status MUST allow only those three values.
 - **FR-006**: The system MUST store clients with: company, owning sales rep, name, phone and optional free-text notes.
 - **FR-007**: The system MUST store reservations with: company, unit, client, the sales rep who made it, and the expiry time. Whether a reservation is active is derived from its expiry time and MUST NOT be stored as a separate status.
 - **FR-008**: The system MUST store contracts with: company, the reservation it comes from, final price, down payment, number of monthly installments, and approval time (empty for a draft). Draft or approved MUST be derived from the approval time. Unit, client and sales rep MUST come from the reservation and MUST NOT be stored again on the contract.
@@ -130,6 +140,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 
 - **FR-014**: Every reference between records MUST be enforced by the database. A reference to a missing record MUST be refused.
 - **FR-015**: Deleting a record that other records reference MUST be refused. No cascading deletes.
+- **FR-015a**: Links between tenant records MUST stay inside one company, enforced by the database: a reservation's unit, client and sales rep; a client's sales rep; and a contract's reservation MUST all belong to the same company as the record that points to them.
 - **FR-016**: Unit: price > 0, area > 0, rooms ≥ 0. Project name and unit number MUST be unique within one company.
 - **FR-017**: Contract: final price > 0, down payment ≥ 0, down payment < final price, number of installments ≥ 1. A reservation MUST have at most one contract.
 - **FR-018**: Installment: amount > 0, paid amount ≥ 0, paid amount ≤ amount. The position in the schedule MUST be unique within one contract.
@@ -154,7 +165,7 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 
 **Tests**
 
-- **FR-031**: Integration tests against a real database MUST prove: an UPDATE on a payment fails; a DELETE on a payment fails; an UPDATE on an audit row fails; a DELETE on an audit row fails; an installment paid amount above its amount fails; a second contract for the same reservation fails.
+- **FR-031**: Integration tests against a real database MUST prove: an UPDATE on a payment fails; a DELETE on a payment fails; an UPDATE on an audit row fails; a DELETE on an audit row fails; an installment paid amount above its amount fails; a second contract for the same reservation fails; a reservation that points to a unit of another company fails.
 
 ### Key Entities
 
@@ -179,13 +190,13 @@ A reviewer starts the system and finds two ready companies, each with a manager,
 - **SC-004**: After the first seed run, there are exactly 2 companies, 8 users (per company: 1 manager, 1 accountant, 2 sales reps), at least 20 available units and at least 12 clients.
 - **SC-005**: Running the seed a second time changes the row count of every table by 0.
 - **SC-006**: A reviewer can log in as each of the 8 seed accounts using only the README (verified in phase 2, when login exists).
-- **SC-007**: The six required integration tests (FR-031) pass on a fresh test database.
+- **SC-007**: The seven required integration tests (FR-031) pass on a fresh test database.
 
 ## Assumptions
 
-- **Area**: stored in whole square meters (no decimals). Real units are listed in whole meters in Saudi listings. *To confirm in `/speckit-clarify`.*
-- **Unit types**: a fixed list: apartment, villa, townhouse, duplex, office, shop. Arabic labels are shown in the UI; the stored value is a fixed code. *To confirm in `/speckit-clarify`.*
-- **Cross-company references**: the database guarantees that every reference exists, but not that both ends belong to the same company (for example, a reservation of company A pointing to a unit of company B). The services of later phases always look up both records by the session's company before linking them, so a foreign record is never found. Composite company-aware references were rejected to keep the schema simple; this is recorded in the README "Assumptions" section.
+- **Area**: whole square meters (no decimals), confirmed in Clarifications. Saudi listings use whole meters.
+- **Unit types**: four residential types: apartment, villa, townhouse, duplex (confirmed in Clarifications). Commercial types are out of scope. Arabic labels are shown in the UI; the stored value is a fixed code.
+- **Cross-company references**: the database refuses links between records of different companies (FR-015a, confirmed in Clarifications). Services still look up every record by the session's company first; the database is the second guard. Installments and payments are reached only through their contract, so they inherit its company. The sales rep's role (that a client's owner is really a sales rep) is checked by the services, not the database.
 - **Append-only scope**: the protection on payments and audit rows applies to the application's database account. A database superuser or the table owner can still disable it on purpose; that is out of the threat model, since the attacker is a logged-in user of the application.
 - **Integration test cleanup**: because payments and audit rows cannot be deleted, integration tests reset state by recreating the test database (or its schema) before the run, or by running each test inside a transaction that is rolled back. The plan picks one.
 - **Seed when data exists**: the seed checks for existing seed data (for example the seed companies or users by their unique email) and skips what already exists. The container entrypoint from phase 0 also runs the seed only on an empty database.
