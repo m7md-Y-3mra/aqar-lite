@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { hash } from "@node-rs/argon2";
 import { expect } from "vitest";
 
+import { generateSessionToken, hashSessionToken } from "@/server/auth/session-token";
 import { getDb } from "@/server/db";
 
 type Db = ReturnType<typeof getDb>;
@@ -74,6 +76,60 @@ export function makeUser(companyId: string, role: User["role"] = "SALES") {
   });
 }
 
+export async function makeUserWithPassword(
+  companyId: string,
+  password: string,
+  role: User["role"] = "SALES",
+) {
+  const id = randomUUID();
+  const email = `${id}@fixtures.test`;
+  const user = await getDb().user.create({
+    data: {
+      id,
+      companyId,
+      name: "مستخدم اختبار",
+      email,
+      passwordHash: await hash(password),
+      role,
+    },
+  });
+
+  return { user, email };
+}
+
+export function makeLoginFailure({
+  email,
+  reason,
+  createdAt,
+  userId,
+  companyId,
+}: {
+  email: string;
+  reason: "invalid_credentials" | "locked";
+  createdAt: Date;
+  userId?: string;
+  companyId?: string;
+}) {
+  expect(email).toBe(email.trim().toLowerCase());
+  return getDb().auditLog.create({
+    data: {
+      action: "LOGIN_FAILED",
+      companyId,
+      userId,
+      meta: { email, reason },
+      createdAt,
+    },
+  });
+}
+
+export async function makeSession(userId: string, expiresAt: Date): Promise<string> {
+  const token = generateSessionToken();
+  await getDb().session.create({
+    data: { id: hashSessionToken(token), userId, expiresAt },
+  });
+  return token;
+}
+
 export function makeUnit(companyId: string, overrides: UnitOverrides = {}) {
   const id = randomUUID();
   return getDb().unit.create({
@@ -92,11 +148,7 @@ export function makeUnit(companyId: string, overrides: UnitOverrides = {}) {
   });
 }
 
-export function makeClient(
-  companyId: string,
-  salesRepId: string,
-  overrides: ClientOverrides = {},
-) {
+export function makeClient(companyId: string, salesRepId: string, overrides: ClientOverrides = {}) {
   return getDb().client.create({
     data: {
       id: randomUUID(),
