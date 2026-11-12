@@ -182,8 +182,8 @@ description: "Task list for phase 1: database schema and seed"
   - "Assumptions": area in whole m²; unit types apartment/villa/townhouse/duplex; the database refuses cross-company links (composite FKs) and services still filter by company; emails stored trimmed and lowercase; the seed runs in one transaction and skips when its first company exists; integration tests rebuild the `aqar_test` schema on every run;
   - "Not done": the app connects as the table owner, which could disable the append-only triggers on purpose; the fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs (one for migrations, one for the app) (plan.md, agreed 2026-11-12).
   Commit as `docs: document seed accounts and schema assumptions`.
-- [ ] T025 Full stack check, quickstart §7: `docker compose down -v && docker compose up --build`; the app log shows both migrations applied and the seed run once; `docker compose restart app` shows the seed skipped.
-- [ ] T026 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration` all pass. Re-run quickstart §1–§3. Fix anything that fails before continuing.
+- [x] T025 Full stack check, quickstart §7: `docker compose down -v && docker compose up --build`; the app log shows both migrations applied and the seed run once; `docker compose restart app` shows the seed skipped.
+- [x] T026 Final gate: `npm run lint && npm run typecheck && npm run test && npm run test:integration` all pass. Re-run quickstart §1–§3. Fix anything that fails before continuing.
 - [ ] T027 Run `/security-review` on the branch diff. Fix every open issue (commit each fix as `fix: …`).
 - [ ] T028 Run the `interview-notes` skill for phase 1 (private notes; not committed unless the skill says so).
 
