@@ -16,6 +16,9 @@
 
 - Q: What can a manager do with clients? → A: View all clients of the company, read-only. Only sales reps add and edit clients.
 - Q: Can an accountant view clients? → A: Yes, all clients of the company, read-only.
+- Q: Can a manager edit the non-price fields of a reserved or sold unit? → A: Yes. Only the price is locked by status; project name, unit number, type, area and rooms stay editable in every status.
+- Q: Does adding a new unit write a price audit entry? → A: No. Only an edit that changes an existing price writes a price-change entry.
+- Q: What order do lists use when no sort is picked? → A: Alphabetical, ascending. Units by project name then unit number; clients by name.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -51,7 +54,7 @@ A manager opens a form and adds a unit with project name (free text), unit numbe
 
 **Acceptance Scenarios**:
 
-1. **Given** a logged-in manager, **When** they submit the form with valid values, **Then** the unit is created in their company with status "available" and appears in the list.
+1. **Given** a logged-in manager, **When** they submit the form with valid values, **Then** the unit is created in their company with status "available", appears in the list, and no audit entry is written.
 2. **Given** a logged-in manager, **When** they submit the form with an empty project name, a zero area or a negative price, **Then** the unit is not created and an Arabic error appears next to each invalid field.
 3. **Given** a unit "Project X / 101" already exists in the manager's company, **When** they add another unit "Project X / 101", **Then** it is refused with a clear message next to the unit number field.
 4. **Given** a unit "Project X / 101" exists in company B, **When** a manager of company A adds "Project X / 101", **Then** it is created successfully.
@@ -73,11 +76,12 @@ A manager opens a unit of their company and edits its details. The price can be 
 1. **Given** an available unit, **When** the manager changes its price, **Then** the new price is saved and one audit entry records the old price, the new price, the unit and the manager.
 2. **Given** a reserved unit, **When** the manager tries to change its price, **Then** it is refused with a clear Arabic message, the price is unchanged, and no audit entry is written.
 3. **Given** a sold unit, **When** the manager tries to change its price, **Then** it is refused in the same way.
-4. **Given** a unit whose reservation has expired, **When** the manager changes its price, **Then** the change succeeds, because the unit is available again.
-5. **Given** the manager opened the edit form while the unit was available, **When** a sales rep reserves the unit before the manager saves a new price, **Then** the price change is refused with a clear message and the price is unchanged.
-6. **Given** an available unit, **When** the manager saves the form with the same price as before, **Then** no price-change audit entry is written.
-7. **Given** a manager sends a status value in the edit request by hand, **When** the edit is saved, **Then** the status is not changed.
-8. **Given** a logged-in sales rep or accountant, **When** they try to edit a unit by calling the server directly, **Then** the request is refused and nothing changes.
+4. **Given** a reserved or sold unit, **When** the manager changes only its area (price unchanged), **Then** the change is saved and no price-change audit entry is written.
+5. **Given** a unit whose reservation has expired, **When** the manager changes its price, **Then** the change succeeds, because the unit is available again.
+6. **Given** the manager opened the edit form while the unit was available, **When** a sales rep reserves the unit before the manager saves a new price, **Then** the price change is refused with a clear message and the price is unchanged.
+7. **Given** an available unit, **When** the manager saves the form with the same price as before, **Then** no price-change audit entry is written.
+8. **Given** a manager sends a status value in the edit request by hand, **When** the edit is saved, **Then** the status is not changed.
+9. **Given** a logged-in sales rep or accountant, **When** they try to edit a unit by calling the server directly, **Then** the request is refused and nothing changes.
 
 ---
 
@@ -158,7 +162,7 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 - **FR-001**: The system MUST let every logged-in staff user (manager, sales rep, accountant) see the units of their own company, and only their own company.
 - **FR-002**: The units list MUST support filtering by status (available, reserved, sold) and by a price range (minimum and/or maximum, both inclusive), sorting by price or area in either direction, and paging. All of this MUST be done by the server, not in the browser.
 - **FR-003**: The server MUST validate every list parameter and refuse invalid values with a validation error (400). Page size defaults to 20 and cannot exceed 50.
-- **FR-004**: Units with equal sort values MUST appear in a stable order, so paging never repeats or skips a unit.
+- **FR-004**: When no sort is chosen, units MUST be ordered by project name, then unit number, ascending (text order). Units with equal sort values MUST appear in a stable order, so paging never repeats or skips a unit.
 - **FR-005**: The filters, sort and page MUST be kept in the page address, so a refresh or a shared link shows the same view.
 - **FR-006**: The units list and a single unit MUST always show the correct status: any reserved unit whose reservation has expired and that has no approved contract MUST be shown as available, even when nobody used the system since the expiry. A sold unit MUST never return to available.
 
@@ -167,9 +171,9 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 - **FR-007**: Only a manager MUST be able to add a unit, with project name, unit number, type (apartment, villa, townhouse, duplex), area in whole square meters, number of rooms and price.
 - **FR-008**: A new unit MUST belong to the manager's company and MUST start as available, whatever the request contains.
 - **FR-009**: Project name plus unit number MUST be unique within a company. A duplicate MUST be refused with an error on the unit number field.
-- **FR-010**: Only a manager MUST be able to edit a unit of their company.
-- **FR-011**: A price change MUST be accepted only while the unit is available at the moment of saving. A price change on a reserved or sold unit MUST be refused with a clear Arabic message, and the price MUST stay unchanged.
-- **FR-012**: Every accepted price change MUST be written to the audit log, in the same all-or-nothing step as the change itself, with the unit, the old price, the new price, the user and the time. Saving an unchanged price MUST NOT write an audit entry.
+- **FR-010**: Only a manager MUST be able to edit a unit of their company. Project name, unit number, type, area and rooms MUST stay editable in every status; only the price is locked by status (FR-011).
+- **FR-011**: A price change (a new price different from the current one) MUST be accepted only while the unit is available at the moment of saving. An edit that keeps the same price MUST NOT be refused because of the unit's status. A price change on a reserved or sold unit MUST be refused with a clear Arabic message, and the price MUST stay unchanged.
+- **FR-012**: Every accepted price change MUST be written to the audit log, in the same all-or-nothing step as the change itself, with the unit, the old price, the new price, the user and the time. Saving an unchanged price, and adding a new unit, MUST NOT write an audit entry.
 - **FR-013**: The system MUST ignore any unit status sent by a user, so no user can set a status directly. Status changes only through reservation, reservation expiry and contract approval (later phases).
 
 **Clients**
@@ -178,7 +182,7 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 - **FR-015**: A sales rep MUST be able to edit the name, phone and notes of clients they own, and no other client.
 - **FR-016**: A sales rep MUST see only clients they own, in the client list and on client pages.
 - **FR-017**: A manager and an accountant MUST each see all clients of their company, with the owning sales rep shown, read-only.
-- **FR-018**: The client list MUST be paged by the server, with the same page-size rules as the units list (default 20, maximum 50, stable order).
+- **FR-018**: The client list MUST be paged by the server, with the same page-size rules as the units list (default 20, maximum 50), ordered by client name ascending with a stable order for equal names.
 - **FR-019**: The client page MUST show the notes as plain text: any HTML or script in the notes MUST be shown as literal characters and never run.
 - **FR-020**: The system MUST allow duplicate phone numbers, and MUST NOT reveal in any response that a phone number is used by another client.
 
@@ -235,7 +239,7 @@ No user can read, edit or even confirm the existence of a unit or client of anot
 - **Depends on phases 1 and 2**: this feature needs the database schema and seed (`002-schema-seed`) and login with sessions and roles (phase 2) to be merged first. Until then it can be specified but not built.
 - Area is in whole square meters and unit types are apartment, villa, townhouse and duplex, as decided in phase 1.
 - Price is entered and shown in riyals with at most 2 decimal places, and stored exactly in halalas. Price filters are entered in riyals too.
-- Only the price is locked by status. A manager may edit the other unit fields (project name, number, type, area, rooms) in any status. *(Flag: revisit if this should also be locked for sold units.)*
+- Only the price is locked by status. A manager may edit the other unit fields (project name, number, type, area, rooms) in any status (clarified 2026-11-12, following the brief's wording).
 - Saving the same price is not a price change and writes no audit entry.
 - Managers and accountants view clients read-only; only the owning sales rep adds and edits (clarified 2026-11-12). Managers do not add clients, so no "choose the owning rep" step is needed.
 - Another rep's client returns 404, not 403, so a rep cannot discover which client identifiers exist.
