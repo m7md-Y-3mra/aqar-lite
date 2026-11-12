@@ -110,17 +110,17 @@ description: "Task list for phase 3: units and clients"
 
   It depends on T015 or phase 2's `ApiError`. T007 must pass.
 - [X] T017 [P] Add the UI primitives to `src/shared/components/ui/` with the shadcn CLI and the existing `components.json` (research R7): `npx shadcn@4.23.0 add textarea native-select table badge skeleton alert`. Reuse phase 2's `button`, `input` and `label`; do not regenerate them. If the CLI wants any package other than the already-installed `radix-ui`, stop and ask. Check that the generated files use logical classes only (no `ml-`/`mr-`/`left-`/`right-`), and fix them if not.
-- [ ] T018 [P] Create `src/shared/components/money-input/money-input.tsx` and `index.ts` (research R5):
+- [X] T018 [P] Create `src/shared/components/money-input/money-input.tsx` and `index.ts` (research R5):
   - a client component;
   - props `{ value: number | undefined; onChange(halalas: number): void; id; name; disabled?; aria-invalid? }`;
   - keeps the riyal text in `useState`;
   - calls `onChange(parseRiyals(text) ?? NaN)`;
   - when `value` changes from outside (edit form defaults, filter reset), shows it with `toRiyalText(value)`, for example `1500.5`.
-- [ ] T019 [P] Create `src/shared/components/pagination-nav/pagination-nav.tsx` and `index.ts`:
+- [X] T019 [P] Create `src/shared/components/pagination-nav/pagination-nav.tsx` and `index.ts`:
   - props `{ page, pageSize, total, onPageChange(page) }`;
   - "السابق" and "التالي" buttons, disabled at the ends;
   - the text "صفحة X من Y" (Y ≥ 1).
-- [ ] T020 [P] Create `src/shared/components/empty-state/empty-state.tsx` and `index.ts` (props `{ message; action?: ReactNode }`). Create `src/shared/components/error-state/error-state.tsx` and `index.ts` (props `{ message; onRetry?; resetHref? }`, showing "إعادة المحاولة" and/or "مسح الفلاتر"). Create `src/shared/components/table-skeleton/table-skeleton.tsx` and `index.ts` (props `{ rows?; columns }`).
+- [X] T020 [P] Create `src/shared/components/empty-state/empty-state.tsx` and `index.ts` (props `{ message; action?: ReactNode }`). Create `src/shared/components/error-state/error-state.tsx` and `index.ts` (props `{ message; onRetry?; resetHref? }`, showing "إعادة المحاولة" and/or "مسح الفلاتر"). Create `src/shared/components/table-skeleton/table-skeleton.tsx` and `index.ts` (props `{ rows?; columns }`).
 - [ ] T021 [P] Create `tests/integration/support/session-users.ts`:
   - `makeSessionUser(companyId, role)` calls `makeUser` from `db-fixtures.ts` and returns phase 2's `SessionUser`;
   - `makeTwoCompanies()` returns company A and company B, each with a MANAGER, an ACCOUNTANT and 2 SALES `SessionUser`s.
