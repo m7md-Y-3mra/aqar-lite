@@ -10,7 +10,7 @@
 
 > **Note on this phase**: The attacker is a logged-in user or a hostile website (brief section 4), so security terms (session token, cookie, `Origin`, 401, 403) appear in the scenarios: they are the acceptance surface. Hashing method, libraries and code structure are left to the plan.
 
-> **Dependency**: Builds on phase 1 (`002-schema-seed`, merged): users with one role and one company, sessions stored by token hash, the append-only audit log with the `LOGIN_FAILED` action, the per-email failed-login index, and the eight seed accounts. Builds on phase 0: the configured app origin (`APP_ORIGIN`), the route wrapper and the error codes. No schema change is expected in this phase.
+> **Dependency**: Builds on phase 1 (`002-schema-seed`, merged): users with one role and one company, sessions stored by token hash, the append-only audit log with the `LOGIN_FAILED` action, the per-email failed-login index, and the eight seed accounts. Builds on phase 0: the configured app origin (`APP_ORIGIN`), the route wrapper and the error codes. One new migration adds a database CHECK that a failed-login row has a known reason (`invalid_credentials` or `locked`); no table or column changes.
 
 ## Clarifications
 
@@ -92,7 +92,7 @@ A visitor who is not logged in, whose session expired, or who sends a made-up to
 **Acceptance Scenarios**:
 
 1. **Given** no session cookie, **When** the visitor opens the home page or any other app page, **Then** they are sent to the login page.
-2. **Given** no session cookie, a random token, or a token whose session expired more than 7 days after login, **When** a protected API route is called, **Then** the response is 401 with the generic message "يجب تسجيل الدخول" and no data.
+2. **Given** no session cookie, a random token, or a token whose session expired more than 7 days after login, **When** a protected API route is called, **Then** the response is 401 with the generic message "يجب تسجيل الدخول أولاً" and no data.
 3. **Given** a session older than 7 days, **When** it is used, **Then** it is treated as no session, even if the browser still sends the cookie.
 4. **Given** the login page, **When** a visitor with no session opens it, **Then** it shows the login form (it is the only page reachable without a session).
 5. **Given** any page, **When** a visitor looks for a sign-up, "forgot password" or user-management link, **Then** none exists.
@@ -189,7 +189,7 @@ Every logged-in page sits inside one app shell: a header with the system name, t
 **Access gate**
 
 - **FR-020**: Every app page except the login page MUST check the session on the server before it renders. Without a valid session, the visitor MUST be sent to the login page.
-- **FR-021**: Every API route except login MUST check the session on the server. Without a valid session, it MUST return 401 with the generic message "يجب تسجيل الدخول" and no data. The response MUST NOT say whether the token was missing, unknown or expired.
+- **FR-021**: Every API route except login and logout (which must work without a session, FR-019) MUST check the session on the server. Without a valid session, it MUST return 401 with the generic message "يجب تسجيل الدخول أولاً" and no data. The response MUST NOT say whether the token was missing, unknown or expired.
 - **FR-022**: A logged-in user who opens the login page MUST be sent to the home page.
 
 **Cross-site request protection**
