@@ -25,7 +25,7 @@ Quality, correctness and security beat feature count. Never build out-of-scope i
 
 ## 2) Features and Dependencies
 - Feature code lives in `src/features/<f>/`: `server/`, `client/`, `domain/`, `<f>.schemas.ts`, `<f>.types.ts`, `<f>.keys.ts`.
-- `src/app/` is routing only: `page.tsx` renders one feature component; `api/**/route.ts` only re-exports handlers from `<f>.routes.ts`.
+- `src/app/` is routing and composition only: `page.tsx` may combine components from several features by passing one into another as a prop (slot). A feature never imports another feature's client components. `api/**/route.ts` only re-exports handlers from `<f>.routes.ts`.
 - Backend infrastructure (db, auth, http wrapper, audit, env, logger) lives in `src/server/`. Code used by both sides lives in `src/shared/`.
 - Every file in `src/server/` and `src/features/*/server/` starts with `import "server-only"`.
 - Features import each other only through `server/index.ts`, in one direction: payments → contracts → reservations → units, clients. Any feature may use auth and audit. No cycles.
