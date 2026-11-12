@@ -79,7 +79,7 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Tests for User Story 1
 
-- [ ] T010 [US1] Create `tests/integration/prisma/schema-constraints.test.ts` with a `describe("data model")` block (spec Story 1, FR-001–004, FR-014, FR-015, FR-022):
+- [x] T010 [US1] Create `tests/integration/prisma/schema-constraints.test.ts` with a `describe("data model")` block (spec Story 1, FR-001–004, FR-014, FR-015, FR-022):
   - "creates a full company → contract → installment chain": `makeContractChain()` + one installment + one payment + one audit row; all inserts succeed (positive path through every table).
   - "rejects a user without a company" (`$executeRaw` insert with `company_id` NULL → 23502).
   - "rejects an unknown role" (`$executeRaw` with role `'ADMIN'` → 22P02).
@@ -88,8 +88,8 @@ description: "Task list for phase 1: database schema and seed"
   - "refuses to delete a unit that has a reservation" (`DELETE FROM units WHERE id = …` → 23001); control: deleting a unit with no reservation works.
   - "accepts two clients with the same phone".
   - "rejects a session id that is not a SHA-256 hex hash" (a 43-char base64url string → 23514 `sessions_id_hash_check`); control: `createHash("sha256").update(randomBytes(32)).digest("hex")` is accepted (FR-004).
-- [ ] T011 [US1] In the same file, add `describe("company links")` (FR-015a, Story 2 scenario 11; clarification Q3). Build company A and company B with `makeContractChain()`-style data, then assert 23503 with the FK name for: client of A with sales rep of B (`clients_company_id_sales_rep_id_fkey`); reservation of A with unit of B (`reservations_company_id_unit_id_fkey`); with client of B (`reservations_company_id_client_id_fkey`); with sales rep of B (`reservations_company_id_sales_rep_id_fkey`); contract of A with reservation of B (`contracts_company_id_reservation_id_fkey`). Control: the same inserts with A's own rows succeed.
-- [ ] T012 [US1] Run `npm run test:integration`; all US1 cases pass. Commit T010–T012 as `test: prove data model and company links in the database`.
+- [x] T011 [US1] In the same file, add `describe("company links")` (FR-015a, Story 2 scenario 11; clarification Q3). Build company A and company B with `makeContractChain()`-style data, then assert 23503 with the FK name for: client of A with sales rep of B (`clients_company_id_sales_rep_id_fkey`); reservation of A with unit of B (`reservations_company_id_unit_id_fkey`); with client of B (`reservations_company_id_client_id_fkey`); with sales rep of B (`reservations_company_id_sales_rep_id_fkey`); contract of A with reservation of B (`contracts_company_id_reservation_id_fkey`). Control: the same inserts with A's own rows succeed.
+- [x] T012 [US1] Run `npm run test:integration`; all US1 cases pass. Commit T010–T012 as `test: prove data model and company links in the database`.
 
 **Checkpoint**: User Story 1 proven.
 
