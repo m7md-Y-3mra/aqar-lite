@@ -1,7 +1,7 @@
 import "server-only";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, type Prisma } from "@/generated/prisma/client";
+import { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { getEnv } from "./env";
 
 const globalDb = globalThis as typeof globalThis & { aqarDb?: PrismaClient };
@@ -23,4 +23,12 @@ export type Tx = Prisma.TransactionClient;
 
 export function withTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   return getDb().$transaction(fn);
+}
+
+export function isUniqueViolation(err: unknown, constraint: string): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2002" &&
+    (err.message.includes(constraint) || JSON.stringify(err.meta ?? {}).includes(constraint))
+  );
 }
