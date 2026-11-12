@@ -2,6 +2,8 @@ import "server-only";
 
 import { z, ZodError } from "zod";
 
+import { getRequestUser } from "@/server/auth/request-user";
+import type { SessionUser } from "@/server/auth/session.service";
 import { getEnv } from "@/server/env";
 import { logger } from "@/server/logger";
 import { ERROR_MESSAGES } from "@/shared/lib/error-messages";
@@ -30,28 +32,44 @@ export async function readJson(req: Request): Promise<unknown> {
   }
 }
 
-export function handleRoute<Ctx = unknown>({
-  auth,
-  handler,
-}: {
-  auth: "public" | "user";
-  handler: (req: Request, ctx: Ctx) => Promise<Response | { data: unknown; status?: number }>;
-}) {
+type RouteResult = Response | { data: unknown; status?: number };
+type MaybePromise<T> = T | Promise<T>;
+type Route<Ctx> = (req: Request, ctx: Ctx) => Promise<Response>;
+
+type PublicRouteOptions<Ctx> = {
+  auth: "public";
+  handler: (req: Request, ctx: Ctx) => MaybePromise<RouteResult>;
+};
+
+type UserRouteOptions<Ctx> = {
+  auth: "user";
+  handler: (req: Request, ctx: Ctx, user: SessionUser) => MaybePromise<RouteResult>;
+};
+
+export function handleRoute<Ctx = unknown>(options: PublicRouteOptions<Ctx>): Route<Ctx>;
+export function handleRoute<Ctx = unknown>(options: UserRouteOptions<Ctx>): Route<Ctx>;
+export function handleRoute<Ctx = unknown>(
+  options: PublicRouteOptions<Ctx> | UserRouteOptions<Ctx>,
+): Route<Ctx> {
   return async (req: Request, ctx: Ctx): Promise<Response> => {
     try {
+      const origin = req.headers.get("Origin");
       if (
         ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
-        req.headers.get("Origin") !== getEnv().APP_ORIGIN
+        (origin === null || !getEnv().APP_ORIGIN.includes(origin))
       ) {
         throw new AppError("INVALID_ORIGIN");
       }
 
-      if (auth === "user") {
-        // Phase 2: replace with requireUser()
-        throw new AppError("UNAUTHORIZED");
+      let result: RouteResult;
+      if (options.auth === "user") {
+        const user = await getRequestUser(req);
+        if (user === null) throw new AppError("UNAUTHORIZED");
+        result = await options.handler(req, ctx, user);
+      } else {
+        result = await options.handler(req, ctx);
       }
 
-      const result = await handler(req, ctx);
       return result instanceof Response
         ? result
         : Response.json({ data: result.data }, { status: result.status ?? 200 });

@@ -1,13 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { getRequestUser } from "@/server/auth/request-user";
+import type { SessionUser } from "@/server/auth/session.service";
 import { AppError } from "@/server/http/app-error";
 import { handleRoute, readJson } from "@/server/http/route-handler";
 import { logger } from "@/server/logger";
 import { ERROR_MESSAGES } from "@/shared/lib/error-messages";
 
+vi.mock("@/server/auth/request-user", () => ({ getRequestUser: vi.fn() }));
+
 const ORIGIN = "http://localhost:3000";
 const URL_ = "http://localhost:3000/api/demo";
+const USER: SessionUser = {
+  userId: "user-id",
+  companyId: "company-id",
+  role: "MANAGER",
+  name: "مستخدم اختبار",
+  companyName: "شركة اختبار",
+};
 
 function post(headers: Record<string, string> = {}, body = "{}") {
   return new Request(URL_, { method: "POST", headers, body });
@@ -17,6 +28,7 @@ const ok = handleRoute({ auth: "public", handler: async () => ({ data: { ok: tru
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.mocked(getRequestUser).mockReset();
 });
 
 describe("handleRoute origin check", () => {
@@ -31,10 +43,24 @@ describe("handleRoute origin check", () => {
     expect(res.status).toBe(403);
   });
 
-  it("accepts a POST from the app origin", async () => {
-    const res = await ok(post({ Origin: ORIGIN }), undefined);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ data: { ok: true } });
+  it.each([ORIGIN, "http://127.0.0.1:3000"])(
+    "accepts a POST from a listed origin: %s",
+    async (origin) => {
+      const res = await ok(post({ Origin: origin }), undefined);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ data: { ok: true } });
+    },
+  );
+
+  it.each([
+    "http://localhost:3000,http://127.0.0.1:3000",
+    "http://localhost:3000/",
+    "http://localhost:30001",
+    "http://localhost",
+    "null",
+  ])("rejects an Origin that only resembles a listed one: %s", async (origin) => {
+    const res = await ok(post({ Origin: origin }), undefined);
+    expect(res.status).toBe(403);
   });
 
   it("does not require Origin on GET", async () => {
@@ -44,11 +70,38 @@ describe("handleRoute origin check", () => {
 });
 
 describe("handleRoute auth", () => {
-  it("fails closed for user routes until sessions exist", async () => {
+  it("returns unauthorized without calling the handler when no user exists", async () => {
+    vi.mocked(getRequestUser).mockResolvedValue(null);
     const handler = vi.fn(async () => ({ data: null }));
     const res = await handleRoute({ auth: "user", handler })(new Request(URL_), undefined);
     expect(res.status).toBe(401);
     expect((await res.json()).error.code).toBe("UNAUTHORIZED");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("passes the resolved user to a user route handler", async () => {
+    vi.mocked(getRequestUser).mockResolvedValue(USER);
+    const handler = vi.fn(async (_req: Request, _ctx: undefined, user: SessionUser) => ({
+      data: user,
+    }));
+
+    const res = await handleRoute({ auth: "user", handler })(new Request(URL_), undefined);
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalledWith(expect.any(Request), undefined, USER);
+  });
+
+  it("checks a mutating request's origin before resolving its user", async () => {
+    vi.mocked(getRequestUser).mockResolvedValue(USER);
+    const handler = vi.fn(async () => ({ data: null }));
+
+    const res = await handleRoute({ auth: "user", handler })(
+      post({ Origin: "https://evil.example" }),
+      undefined,
+    );
+
+    expect(res.status).toBe(403);
+    expect(getRequestUser).not.toHaveBeenCalled();
     expect(handler).not.toHaveBeenCalled();
   });
 });

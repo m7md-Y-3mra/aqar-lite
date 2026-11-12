@@ -26,6 +26,17 @@ function isValidName(name: string) {
 }
 
 describe("project conventions", () => {
+  it("checks the session on every page, with the login page using getCurrentUser", () => {
+    const loginPage = join(ROOT, "src/app/login/page.tsx");
+    const pages = walk(join(ROOT, "src/app")).filter((path) => path.endsWith("/page.tsx"));
+    expect(pages).toContain(loginPage);
+    for (const page of pages) {
+      expect(readFileSync(page, "utf8"), relative(ROOT, page)).toMatch(
+        page === loginPage ? /\bgetCurrentUser\s*\(/ : /\brequireUser\s*\(/,
+      );
+    }
+  });
+
   it("accepts kebab-case and Next.js route segment names only", () => {
     for (const ok of [
       "unit-list",

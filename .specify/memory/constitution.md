@@ -1,5 +1,18 @@
 <!--
-Sync Impact Report
+Sync Impact Report (1.1.0, 2026-11-12)
+- Version change: 1.0.0 → 1.1.0 (MINOR: guidance added; no protection of tenant data removed)
+- Modified principles:
+  I. Tenant Isolation: added the pre-login lookup exception (user by email, session by token hash,
+     failed-login count by email), which cannot take companyId because they establish the tenant
+  II. Server-Side Authorization: login, logout and "who am I" act only on the request's own
+     credentials or session, so they have no role check
+- Reason: found by /speckit.analyze on 003-auth-app-shell; login (brief 3.1) has no company field,
+  so the rules as written could not hold for authentication itself
+- Templates: no change needed
+- AGENTS.md: §3 updated with the same exception
+- Deferred TODOs: none
+
+Sync Impact Report (1.0.0)
 - Version change: template (unratified) → 1.0.0 (initial ratification)
 - Modified principles: none (first version; all placeholders replaced)
 - Added principles:
@@ -44,6 +57,9 @@ Order of authority: docs/brief.md > this constitution > AGENTS.md > spec/plan/ta
 - A user can never read or change data of another company, through any page, API route or query parameter.
 - The company and the user are taken from the server session only, never from the request.
 - Every data access function requires `companyId` and filters by it.
+- Exception, before the tenant is known: the three lookups that establish who the user is (user by login email,
+  session by token hash, recent failed logins by email) cannot take `companyId`. They return only the caller's own
+  user or session, and every function after them takes `companyId` from that session.
 - A record from another company returns 404.
 - Every feature that reads or writes tenant data has an integration test that proves cross-company access is refused.
 
@@ -53,6 +69,8 @@ One leak fails the test.
 ### II. Server-Side Authorization
 
 - Every API route and every service function checks the role AND the ownership before it acts.
+- Login, logout and "who am I" have no role check: they act only on the credentials or the session sent with the
+  request, never on another user's data.
 - The UI may hide actions, but hiding is never the check.
 - Input schemas list the allowed fields (allowlist). A user cannot change a field he is not allowed to change, even if he sends it by hand.
 
@@ -136,4 +154,4 @@ One leak fails the test.
 - Any change needs a reason, an updated version number, and a check that AGENTS.md still agrees with it.
 - Versioning: MAJOR when a principle is removed or changed in meaning, MINOR when one is added, PATCH for wording.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-11
+**Version**: 1.1.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-12

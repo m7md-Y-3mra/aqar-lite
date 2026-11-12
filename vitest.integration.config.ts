@@ -20,7 +20,7 @@ export default defineConfig({
     globalSetup: ["tests/integration/setup/global-setup.ts"],
     env: {
       DATABASE_URL: testDbUrl,
-      APP_ORIGIN: "http://localhost:3000",
+      APP_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000",
       LOG_LEVEL: "silent",
     },
   },

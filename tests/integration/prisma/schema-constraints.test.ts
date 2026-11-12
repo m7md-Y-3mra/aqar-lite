@@ -580,8 +580,11 @@ describe("business rules", () => {
   });
 
   it.each([
-    { name: "with a mixed-case email", meta: { email: "Ali@X.test" } },
-    { name: "without an email", meta: {} },
+    {
+      name: "with a mixed-case email",
+      meta: { email: "Ali@X.test", reason: "invalid_credentials" },
+    },
+    { name: "without an email", meta: { reason: "invalid_credentials" } },
   ])("rejects LOGIN_FAILED $name", async ({ meta }) => {
     const db = getDb();
     await expectDbError(
@@ -593,18 +596,45 @@ describe("business rules", () => {
     );
 
     expect(
-      (await db.auditLog.create({ data: { action: "LOGIN_FAILED", meta: { email: "x@y.test" } } }))
-        .meta,
-    ).toEqual({ email: "x@y.test" });
+      (
+        await db.auditLog.create({
+          data: {
+            action: "LOGIN_FAILED",
+            meta: { email: "x@y.test", reason: "invalid_credentials" },
+          },
+        })
+      ).meta,
+    ).toEqual({ email: "x@y.test", reason: "invalid_credentials" });
   });
 
   it("accepts LOGIN_FAILED with no company and no user", async () => {
     const audit = await getDb().auditLog.create({
-      data: { action: "LOGIN_FAILED", meta: { email: "x@y.test" } },
+      data: { action: "LOGIN_FAILED", meta: { email: "x@y.test", reason: "invalid_credentials" } },
     });
 
     expect(audit.companyId).toBeNull();
     expect(audit.userId).toBeNull();
-    expect(audit.meta).toEqual({ email: "x@y.test" });
+    expect(audit.meta).toEqual({ email: "x@y.test", reason: "invalid_credentials" });
+  });
+});
+
+describe("failed-login reasons", () => {
+  it.each([
+    { name: "an unknown reason", meta: { email: "x@y.test", reason: "bad" } },
+    { name: "no reason", meta: { email: "x@y.test" } },
+  ])("rejects $name", async ({ meta }) => {
+    await expectDbError(
+      getDb().$executeRaw`
+        INSERT INTO audit_logs (action, meta)
+        VALUES ('LOGIN_FAILED', ${JSON.stringify(meta)}::jsonb)
+      `,
+      { code: "23514", constraint: "audit_logs_login_failed_reason_check" },
+    );
+  });
+
+  it.each(["invalid_credentials", "locked"])("accepts %s", async (reason) => {
+    const meta = { email: "x@y.test", reason };
+    const audit = await getDb().auditLog.create({ data: { action: "LOGIN_FAILED", meta } });
+    expect(audit.meta).toEqual(meta);
   });
 });

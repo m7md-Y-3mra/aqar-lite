@@ -7,14 +7,14 @@ RUN apt-get update \
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM base AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 RUN npm prune --omit=dev
 
 FROM base AS runner
