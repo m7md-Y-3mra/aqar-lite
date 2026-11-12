@@ -32,7 +32,9 @@ describe("parseEnv", () => {
   });
 
   it("rejects an APP_ORIGIN with a path", () => {
-    expect(errorOf({ ...VALID, APP_ORIGIN: "http://x.com/path" })).toContain("APP_ORIGIN: must be an origin");
+    expect(errorOf({ ...VALID, APP_ORIGIN: "http://x.com/path" })).toContain(
+      "APP_ORIGIN: must be an origin",
+    );
   });
 
   it("rejects a non-Postgres DATABASE_URL", () => {

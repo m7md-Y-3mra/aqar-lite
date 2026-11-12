@@ -16,7 +16,8 @@ function walk(dir: string): string[] {
 
 const KEBAB = /^[a-z0-9]+(?:[-.][a-z0-9]+)*$/;
 // Next.js route segments: [id], [...slug], [[...slug]], (group)
-const ROUTE_SEGMENT = /^(?:\[\[\.\.\.([a-z0-9-]+)\]\]|\[(?:\.\.\.)?([a-z0-9-]+)\]|\(([a-z0-9-]+)\))$/;
+const ROUTE_SEGMENT =
+  /^(?:\[\[\.\.\.([a-z0-9-]+)\]\]|\[(?:\.\.\.)?([a-z0-9-]+)\]|\(([a-z0-9-]+)\))$/;
 
 function isValidName(name: string) {
   const match = ROUTE_SEGMENT.exec(name);
@@ -26,7 +27,14 @@ function isValidName(name: string) {
 
 describe("project conventions", () => {
   it("accepts kebab-case and Next.js route segment names only", () => {
-    for (const ok of ["unit-list", "units.repository.ts", "[id]", "[...slug]", "[[...slug]]", "(auth)"]) {
+    for (const ok of [
+      "unit-list",
+      "units.repository.ts",
+      "[id]",
+      "[...slug]",
+      "[[...slug]]",
+      "(auth)",
+    ]) {
       expect(isValidName(ok), ok).toBe(true);
     }
     for (const bad of ["UnitList", "unit_list", "[Id]", "(Auth)"]) {

@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import pg from "pg";
 
-const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test";
+const testDbUrl =
+  process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test";
 
 export default async function setup() {
   const url = new URL(testDbUrl);
@@ -19,7 +20,9 @@ export default async function setup() {
   try {
     await client.connect();
   } catch {
-    throw new Error(`Test database not reachable at ${where}. Run \`docker compose up -d db\` first.`);
+    throw new Error(
+      `Test database not reachable at ${where}. Run \`docker compose up -d db\` first.`,
+    );
   } finally {
     await client.end().catch(() => undefined);
   }

@@ -2,7 +2,8 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // Integration tests never see the developer's app DATABASE_URL: they always run on the test database.
-const testDbUrl = process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test";
+const testDbUrl =
+  process.env.TEST_DATABASE_URL ?? "postgresql://aqar:aqar@localhost:5433/aqar_test";
 
 export default defineConfig({
   resolve: {
