@@ -55,7 +55,7 @@ description: "Task list for phase 3: units and clients"
   - which of `button`, `input`, `label` (in `src/shared/components/ui/`) and `src/shared/lib/api-client.ts` already exist.
 
   Commit `docs: record phase 2 interfaces for phase 3`.
-- [ ] T003 Run `npm ci`, then `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npm run db:generate`, `npm run lint && npm run typecheck && npm run test`, `docker compose up -d db` and `npm run test:integration`. All must pass before any change. This is the baseline.
+- [X] T003 Run `npm ci`, then `DATABASE_URL=postgresql://aqar:aqar@localhost:5433/aqar npm run db:generate`, `npm run lint && npm run typecheck && npm run test`, `docker compose up -d db` and `npm run test:integration`. All must pass before any change. This is the baseline.
 
 ---
 
@@ -441,7 +441,7 @@ These tests prove behaviour built in US1–US5. They should pass once written; i
   Fix anything found.
 - [X] T081 Run `npm run lint && npm run typecheck && npm run test`, then `docker compose up -d db && npm run test:integration`. Everything must pass.
 - [X] T082 Run the manual checks in `specs/004-unit-client-management/quickstart.md` §2–§7 with `docker compose up` and the seed accounts. Record any failure as a new task and fix it.
-- [ ] T083 Run `/security-review` on the branch and fix every open issue (constitution › Development Workflow). Then mark all tasks done in this file and commit `docs: mark phase 3 tasks done`.
+- [X] T083 Run `/security-review` on the branch and fix every open issue (constitution › Development Workflow). Then mark all tasks done in this file and commit `docs: mark phase 3 tasks done`.
 
 ---
 
