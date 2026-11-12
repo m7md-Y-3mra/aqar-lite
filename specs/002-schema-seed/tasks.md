@@ -34,9 +34,9 @@ description: "Task list for phase 1: database schema and seed"
 
 **Purpose**: Make sure phase 0 exists on this branch before any phase 1 file changes.
 
-- [ ] T001 Confirm phase 0 (`001-project-setup`) is merged into `main` (`git log main --oneline | grep -i "phase 0\|project setup\|Docker stack"` and `test -f tests/integration/setup/global-setup.ts` on `main`). Then rebase this branch: `git rebase main`. If phase 0 is not merged, STOP and tell the user; do not continue.
-- [ ] T002 Install and start: `npm ci`, copy `.env.example` → `.env` if missing, `npm run db:generate`, `docker compose up -d db`. If the volume predates `aqar_test`, run `docker compose down -v` once (phase 0 README).
-- [ ] T003 Baseline: run `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. Record the result in the commit message of T005.
+- [x] T001 Confirm phase 0 (`001-project-setup`) is merged into `main` (`git log main --oneline | grep -i "phase 0\|project setup\|Docker stack"` and `test -f tests/integration/setup/global-setup.ts` on `main`). Then rebase this branch: `git rebase main`. If phase 0 is not merged, STOP and tell the user; do not continue.
+- [x] T002 Install and start: `npm ci`, copy `.env.example` → `.env` if missing, `npm run db:generate`, `docker compose up -d db`. If the volume predates `aqar_test`, run `docker compose down -v` once (phase 0 README).
+- [x] T003 Baseline: run `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. Record the result in the commit message of T005.
 
 ---
 
@@ -46,8 +46,8 @@ description: "Task list for phase 1: database schema and seed"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Change `tests/integration/setup/global-setup.ts` (phase 0 file): between the connection check (step 2) and `prisma migrate deploy` (step 3), reuse the same `pg` client (or open one with the same `testDbUrl`) to run `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, then close it. The `_test` name guard (step 1) and the "not reachable" message stay first and unchanged. Add a one-line comment: payments and audit rows are append-only, so each run starts from an empty schema (research R8).
-- [ ] T005 Gate: run the full phase 0 suite again (`npm run test && npm run test:integration`). It must pass exactly as in T003 (plan.md "Phase 0 global-setup change"). Commit T004 + T005 as `test: reset integration schema before each run`.
+- [x] T004 Change `tests/integration/setup/global-setup.ts` (phase 0 file): between the connection check (step 2) and `prisma migrate deploy` (step 3), reuse the same `pg` client (or open one with the same `testDbUrl`) to run `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, then close it. The `_test` name guard (step 1) and the "not reachable" message stay first and unchanged. Add a one-line comment: payments and audit rows are append-only, so each run starts from an empty schema (research R8).
+- [x] T005 Gate: run the full phase 0 suite again (`npm run test && npm run test:integration`). It must pass exactly as in T003 (plan.md "Phase 0 global-setup change"). Commit T004 + T005 as `test: reset integration schema before each run`.
 - [ ] T006 Write the 4 enums and 10 models in `prisma/schema.prisma` exactly as in [data-model.md](./data-model.md) (it matches the spike schema in research):
   - ids `String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid`, except `Session.id String @id`;
   - money `BigInt`; `area`, `rooms`, `seq`, `installmentCount` `Int`; instants `DateTime @db.Timestamptz(3)`; `dueDate DateTime @db.Date`; `meta Json @default("{}")`;

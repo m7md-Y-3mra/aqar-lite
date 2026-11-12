@@ -18,11 +18,16 @@ export default async function setup() {
 
   const client = new pg.Client({ connectionString: testDbUrl, connectionTimeoutMillis: 3000 });
   try {
-    await client.connect();
-  } catch {
-    throw new Error(
-      `Test database not reachable at ${where}. Run \`docker compose up -d db\` first.`,
-    );
+    try {
+      await client.connect();
+    } catch {
+      throw new Error(
+        `Test database not reachable at ${where}. Run \`docker compose up -d db\` first.`,
+      );
+    }
+
+    // Payments and audit rows are append-only, so each run starts from an empty schema.
+    await client.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   } finally {
     await client.end().catch(() => undefined);
   }
