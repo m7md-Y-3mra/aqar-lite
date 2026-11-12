@@ -64,9 +64,12 @@ and a `postgres:18-alpine` container (2026-11-12). The spike schema is the one i
   `CHECK (email = lower(btrim(email)) AND email <> '')`. Only normalized emails can be stored, so the plain
   unique index is case-insensitive in effect (spec FR-003).
   The same rule applies to `meta.email` on `LOGIN_FAILED` audit rows (FR-012):
-  `CHECK (action <> 'LOGIN_FAILED' OR meta ->> 'email' = lower(btrim(meta ->> 'email')))`.
+  `CHECK (action <> 'LOGIN_FAILED' OR (coalesce(meta ->> 'email', '') <> '' AND meta ->> 'email' = lower(btrim(meta ->> 'email'))))`.
+  The `coalesce` matters: a missing `email` key makes `meta ->> 'email'` NULL, and a CHECK that evaluates to NULL
+  passes. Without it, a phase 2 bug that forgets the email would silently switch off the lockout.
 - **Observed**: inserting `R@A.test` → `23514 users_email_normalized_check`; inserting a `LOGIN_FAILED` row with
-  `"X@y.test"` → `23514 audit_logs_login_failed_email_check`.
+  `"X@y.test"` → `23514 audit_logs_login_failed_email_check`. (The spike used the first form; the NULL case is covered
+  by the integration test "rejects LOGIN_FAILED without an email".)
 - **Alternatives considered**: `citext` (rejected: an extension and a type Prisma maps poorly); a unique index on
   `lower(email)` (rejected: lets mixed-case emails in, so login lookups would also need `lower()`).
 - **Contract for phase 2**: normalize with `trim().toLowerCase()` before every lookup and before writing `LOGIN_FAILED`.
@@ -149,7 +152,10 @@ and a `postgres:18-alpine` container (2026-11-12). The spike schema is the one i
     a unique error through a model call is `P2002`. In both cases the Postgres SQLSTATE is in
     `error.meta.driverAdapterError.cause.originalCode` (`23514`, `23505`, `AQ001`, …) and the constraint name is in
     `cause.originalMessage`. One test helper, `expectDbError(promise, { code, constraint? })`, reads these two
-    fields, so every negative test asserts both.
+    fields **by shape**, without importing Prisma error classes, so every negative test asserts both.
+- **Imports in tests**: test files get the client from `@/server/db` (phase 0) and never import the generated
+  client. Phase 0's ORM lint ban covers only `src/**`, so this is a choice for clarity, not a lint requirement;
+  `eslint.config.mjs` does not change. The seed test passes that same client to `runSeed(db)`.
 - **Alternatives considered**: `prisma migrate reset --force` (rejected: its seeding behaviour changed across
   Prisma versions, and a plain DROP is easier to read); one rolled-back transaction per test (rejected: a test
   that expects an error aborts the transaction, so each needs a savepoint; more code for no gain).

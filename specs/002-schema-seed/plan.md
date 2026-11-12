@@ -56,9 +56,11 @@ Source: `.specify/memory/constitution.md`.
 | V | Database-Enforced Integrity | PASS | Two migrations; CHECK, UNIQUE, composite FKs, no cascade; triggers block UPDATE/DELETE/TRUNCATE on payments and audit logs. Known limit: the table owner can disable triggers (R5), listed in README "Not done". |
 | VI | Layered Feature Architecture | PASS | Only `prisma/**` and tests use Prisma directly (phase 0 lint override). No `src/` feature code. |
 | VII | Security by Default | PASS | Seed passwords stored only as Argon2id hashes; sessions store only the token hash; emails normalized by CHECK so the phase 2 lockout cannot be bypassed by letter case. |
-| VIII | Scope Discipline and Simplicity | PASS | No new dependency. Every field is from the agreed notes. Additions beyond the notes are listed below for approval. |
+| VIII | Scope Discipline and Simplicity | PASS pending approval of departures 1–8 | No new dependency. Every field is from the agreed notes. Additions beyond the notes are listed below for approval. |
 
-**Post-design re-check**: all PASS.
+**Post-design re-check**: I–VII PASS; VIII PASS once departures 1–8 are approved.
+
+**Agent context**: the agent-context update script was not run. `CLAUDE.md` stays only `@AGENTS.md` (docs/phases.md; approved in phase 0).
 
 ## Departures from the agreed plan notes (need approval)
 
@@ -67,7 +69,7 @@ None removes or changes an agreed field. Each one adds a database rule the spec 
 1. **Company-aware links** (clarification Q3, FR-015a): `@@unique([companyId, id])` on User, Unit, Client,
    Reservation; composite FKs for client → sales rep, reservation → unit / client / sales rep, contract → reservation.
    Contract also gets `@@unique([companyId, reservationId])`, which Prisma requires for the 1-to-1 composite FK (R1).
-2. **Email normalization CHECK** on `users.email` and on `LOGIN_FAILED` `meta.email` (FR-003, FR-012, R4).
+2. **Email normalization CHECK** on `users.email` and on `LOGIN_FAILED` `meta.email`, which must also be present (FR-003, FR-012, R4).
 3. **TRUNCATE triggers** in addition to UPDATE/DELETE (Story 3 scenario 5, R5).
 4. **Extra small CHECKs**: unit project name and number trimmed and not empty (stops `"A-101 "` beating the
    unique rule); `installments.seq >= 0`; idempotency key not empty.
@@ -154,7 +156,7 @@ Abbreviations: **SC** = `schema-constraints.test.ts`, **AO** = `append-only.test
 | Story 2 sc.8, FR-018: installment position unique | SC › "rejects a duplicate seq in one contract" (23505) |
 | Story 2 sc.9–10, FR-019: payment amount and key | SC › "rejects payment amount ≤ 0" (23514), "rejects a repeated key on one contract" (23505), "accepts the same key on another contract" |
 | FR-022: phone not unique | SC › "accepts two clients with the same phone" |
-| FR-012: failed-login email normalized | SC › "rejects LOGIN_FAILED with a mixed-case email" (23514), "accepts LOGIN_FAILED with no company and no user" |
+| FR-012: failed-login email recorded and normalized | SC › "rejects LOGIN_FAILED with a mixed-case email" (23514), "rejects LOGIN_FAILED without an email" (23514), "accepts LOGIN_FAILED with no company and no user" |
 | FR-020, Story 3 sc.1–2: payment UPDATE/DELETE fail | AO › "UPDATE on a payment fails", "DELETE on a payment fails" (AQ001; row re-read and unchanged) |
 | FR-021, Story 3 sc.3–4: audit UPDATE/DELETE fail | AO › "UPDATE on an audit row fails", "DELETE on an audit row fails" (AQ001; row unchanged) |
 | Story 3 sc.5: TRUNCATE fails | AO › "TRUNCATE payments fails", "TRUNCATE audit_logs fails" (AQ001) |

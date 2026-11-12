@@ -136,7 +136,7 @@ Triggers reject UPDATE, DELETE and TRUNCATE (SQLSTATE `AQ001`). No allocation ta
 | userId | uuid? | FK → users; null for a failed login with an unknown email |
 | action | AuditAction | |
 | entityId | uuid? | the unit, contract or payment the row is about |
-| meta | jsonb | default `{}`; `LOGIN_FAILED` rows carry `meta.email`, normalized (`CHECK`, R4) |
+| meta | jsonb | default `{}`; `LOGIN_FAILED` rows MUST carry `meta.email`, not empty and normalized (`CHECK`, R4) |
 | createdAt | tstz | default `now()` |
 
 Indexes: `(company_id, created_at)` (phase 7 list, newest first) and the partial expression index
