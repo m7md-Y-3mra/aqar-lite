@@ -123,7 +123,7 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Tests for User Story 3 (write first; they must FAIL before T016)
 
-- [ ] T015 [US3] Create `tests/integration/prisma/append-only.test.ts` (spec Story 3, FR-020, FR-021, FR-031). In `beforeAll`, create one contract chain, one payment and one audit row (`PRICE_CHANGED`, `meta {"old":1,"new":2}`). Cases, each with direct SQL via `$executeRaw` and `expectDbError(…, { code: "AQ001" })`, then re-read the row with `$queryRaw` and assert every column is unchanged / the row still exists:
+- [x] T015 [US3] Create `tests/integration/prisma/append-only.test.ts` (spec Story 3, FR-020, FR-021, FR-031). In `beforeAll`, create one contract chain, one payment and one audit row (`PRICE_CHANGED`, `meta {"old":1,"new":2}`). Cases, each with direct SQL via `$executeRaw` and `expectDbError(…, { code: "AQ001" })`, then re-read the row with `$queryRaw` and assert every column is unchanged / the row still exists:
   - "UPDATE on a payment fails", "DELETE on a payment fails", "TRUNCATE payments fails";
   - "UPDATE on an audit row fails", "DELETE on an audit row fails", "TRUNCATE audit_logs fails";
   - "inserts a payment and an audit row" (positive control, Story 3 scenario 6).
@@ -131,8 +131,8 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Run `npx prisma migrate dev --name append_only_guards --create-only`. Fill `prisma/migrations/<timestamp>_append_only_guards/migration.sql` with: function `reject_append_only_change()` (`LANGUAGE plpgsql`, `RAISE EXCEPTION 'append-only table %: % is not allowed', TG_TABLE_NAME, TG_OP USING ERRCODE = 'AQ001'`), and triggers `payments_no_update_delete` (`BEFORE UPDATE OR DELETE … FOR EACH ROW`), `payments_no_truncate` (`BEFORE TRUNCATE … FOR EACH STATEMENT`), `audit_logs_no_update_delete`, `audit_logs_no_truncate` (research R5). Apply with `npx prisma migrate dev`, then repeat the drift check (quickstart §2).
-- [ ] T017 [US3] Run `npm run test:integration`; T015 now passes and US1/US2 still pass. Run quickstart §5 by hand on `aqar_test`. Commit T016–T017 as `feat: make payments and audit log append-only`.
+- [x] T016 [US3] Run `npx prisma migrate dev --name append_only_guards --create-only`. Fill `prisma/migrations/<timestamp>_append_only_guards/migration.sql` with: function `reject_append_only_change()` (`LANGUAGE plpgsql`, `RAISE EXCEPTION 'append-only table %: % is not allowed', TG_TABLE_NAME, TG_OP USING ERRCODE = 'AQ001'`), and triggers `payments_no_update_delete` (`BEFORE UPDATE OR DELETE … FOR EACH ROW`), `payments_no_truncate` (`BEFORE TRUNCATE … FOR EACH STATEMENT`), `audit_logs_no_update_delete`, `audit_logs_no_truncate` (research R5). Apply with `npx prisma migrate dev`, then repeat the drift check (quickstart §2).
+- [x] T017 [US3] Run `npm run test:integration`; T015 now passes and US1/US2 still pass. Run quickstart §5 by hand on `aqar_test`. Commit T016–T017 as `feat: make payments and audit log append-only`.
 
 **Checkpoint**: all FR-031 database tests pass.
 
