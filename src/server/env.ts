@@ -51,12 +51,13 @@ export class EnvError extends Error {
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = envSchema.safeParse(source);
   if (!result.success) {
-    throw new EnvError(
-      result.error.issues.map((issue) => ({
-        key: String(issue.path[0]),
-        reason: issue.message,
-      })),
-    );
+    // One reason per key: an empty value would otherwise also fail the format check.
+    const reasons = new Map<string, string>();
+    for (const issue of result.error.issues) {
+      const key = String(issue.path[0]);
+      if (!reasons.has(key)) reasons.set(key, issue.message);
+    }
+    throw new EnvError([...reasons].map(([key, reason]) => ({ key, reason })));
   }
   return Object.freeze(result.data);
 }

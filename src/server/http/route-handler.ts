@@ -21,6 +21,15 @@ function errorResponse(code: ErrorCode, fieldErrors?: Record<string, string[]>) 
   );
 }
 
+/** Reads a JSON body. A body that is not valid JSON is the client's fault (400), not a server error. */
+export async function readJson(req: Request): Promise<unknown> {
+  try {
+    return await req.json();
+  } catch {
+    throw new AppError("VALIDATION_ERROR");
+  }
+}
+
 export function handleRoute<Ctx = unknown>({
   auth,
   handler,
@@ -52,9 +61,6 @@ export function handleRoute<Ctx = unknown>({
       }
       if (err instanceof ZodError) {
         return errorResponse("VALIDATION_ERROR", z.flattenError(err).fieldErrors);
-      }
-      if (err instanceof SyntaxError) {
-        return errorResponse("VALIDATION_ERROR");
       }
       logger.error(
         { err, method: req.method, path: new URL(req.url).pathname },
