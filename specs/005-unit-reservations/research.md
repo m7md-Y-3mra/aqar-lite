@@ -141,7 +141,7 @@ Both statements are `$queryRaw`/`$executeRaw` tagged templates with bound parame
 - `src/app/(app)/units/page.tsx` renders `<UnitsPage reserveDialog={<ReserveUnitDialog />} />`.
 - `UnitsPage` (units feature) renders the slot once. The "حجز" button on an AVAILABLE row is shown only to `SALES`. It sets `?reserve=<unitId>` in the URL and keeps every other query param.
 - `ReserveUnitDialog` (reservations feature) reads `reserve` from the URL with `useSearchParams`. It is open while the param is a UUID. It loads `GET /api/reservations/options?unitId=…` (R8). On close or success it removes `reserve` from the URL with `router.replace` (no new history entry).
-- After success it shows a sonner toast and invalidates `reservationKeys.all`. It also invalidates the units list with the key prefix `["units"]`, which is passed to it as a prop from `UnitsPage` (`unitsQueryKey`), so it imports nothing from the units feature.
+- After success it shows a sonner toast and invalidates `reservationKeys.all`. It also invalidates the units list with the key prefix `["units"]`. That key is passed to it as the `unitsQueryKey` prop by `src/app/(app)/units/page.tsx` (`unitKeys.all`), so the dialog imports nothing from the units feature.
 - On 409 it shows the conflict message at the top of the form and invalidates the units list, so the row's status refreshes (FR-020).
 
 **Rationale**:
@@ -200,10 +200,10 @@ The Arabic message for `UNIT_NOT_AVAILABLE` (in `src/shared/lib/error-messages.t
 2. **Parallel reserve, just-expired unit**: the same, but the unit starts RESERVED with an expired reservation. This proves R2 inside the reserve path. Repeat 10 times.
 3. **Release vs reserve, deterministic** (proves R2 and fails with phase 3's single statement):
    1. Transaction A runs `releaseExpired` and `reserveUnitIfAvailable`, inserts the reservation, and then waits on a promise before it commits.
-   2. Start `listUnits(manager)` (B).
+   2. Start `releaseExpired(companyId)` without a `tx` (B). This is what `listUnits` calls first.
    3. Poll `pg_stat_activity` until B's backend shows `wait_event_type = 'Lock'` (timeout 3 s).
    4. Let A commit, then await B.
-   5. Assert the unit is still `RESERVED`, B's result shows it `RESERVED`, and there is exactly 1 active reservation.
+   5. Assert the unit is still `RESERVED`, B returned 0, and there is exactly 1 active reservation.
 
 **Rationale**: `Promise.all` alone rarely produces the release-vs-reserve interleaving. Holding A open makes the test fail every time with the old code and pass every time with the fix.
 

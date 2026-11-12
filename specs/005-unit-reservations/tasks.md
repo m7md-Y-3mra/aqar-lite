@@ -160,7 +160,8 @@ Check these against the merged code in T001, and update the task text if a name 
   - "409 body has code UNIT_NOT_AVAILABLE and the Arabic message";
   - "400 with fieldErrors.unitId and fieldErrors.clientId";
   - "POST with a foreign Origin → 403 INVALID_ORIGIN";
-  - "DELETE and PATCH /api/reservations → 405" (FR-014);
+  - "two parallel POSTs from two rep sessions: one 201, one 409": `Promise.allSettled` of two `reserveHandler(apiRequest("/api/reservations", { method: "POST", body, cookie }))` calls, with sales1 and sales2 cookies and each rep's own client. Exactly one is 201 and one is 409 `UNIT_NOT_AVAILABLE`, and there is 1 reservation row (constitution IV);
+  - "route modules export no DELETE, PATCH or PUT" (FR-014): `Object.keys(await import("@/app/api/reservations/route"))` sorted equals `["GET", "POST"]`, and the options route equals `["GET"]`. Handlers are called directly, so Next's 405 cannot be observed here;
   - "GET /api/reservations/options as manager → 403".
 
 ### Implementation for User Story 1

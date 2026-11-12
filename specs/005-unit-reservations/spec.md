@@ -96,7 +96,7 @@ A manager opens the reservations page and sees every active reservation in their
 
 1. **Given** active reservations from several reps of company A, **When** the manager of company A opens the reservations page, **Then** they see all of them, each with the unit, the client, the sales rep, the expiry date and time, and the time left.
 2. **Given** active reservations in company B, **When** the manager of company A opens the list, **Then** none of company B's reservations appear.
-3. **Given** a logged-in accountant, **When** they open the reservations page or call the reservations list on the server directly, **Then** the request is refused as "not allowed", and the reservations section is not shown in their navigation.
+3. **Given** a logged-in accountant, **When** they open the reservations page by its address, **Then** they are sent to the home page; **When** they call the reservations list on the server directly, **Then** the request is refused as "not allowed" (403). The reservations section is not shown in their navigation.
 
 ---
 
@@ -203,6 +203,6 @@ A manager opens the reservations page and sees every active reservation in their
 - **Status codes**: role not allowed → 403; another rep's client, or a unit or client of another company or that does not exist → 404; unit not available (lost the race, already reserved, or sold) → 409; invalid input → 400. One conflict message covers every "not available" case, because the rep cannot tell a fresh race from an older reservation, and both mean "pick another unit".
 - **No reservation history page**: expired reservations are kept in the data but not listed in this phase.
 - **No audit entry for reservations**: the brief's audit list (failed login, price change, contract approval, payment) does not include reservations.
-- **Expiry is applied when data is read or changed**, not by a timer. The release step already exists from phase 3; this phase calls it before reserving and before listing reservations.
+- **Expiry is applied when data is read or changed**, not by a timer. The release step already exists from phase 3. This phase makes it safe against concurrent reserves (research R2), and calls it before reserving and before listing reservations.
 - **Draft contracts** do not extend a reservation. Approval of an expired reservation is refused in phase 5.
 - **Cancelling** a reservation by hand is out of scope (user input). A rep who no longer needs a unit waits for the 72 hours to pass.
