@@ -33,7 +33,7 @@ The first build takes several minutes (base images and `npm ci`); later builds u
 
 If you used an older volume from before the test database existed, reset it once: `docker compose down -v`.
 
-Demo accounts (login arrives in phase 2). Password for every account: `AqarLite#2026`
+Demo accounts. Log in at http://localhost:3000/login. Password for every account: `AqarLite#2026`
 (demo only; stored only as an Argon2id hash).
 
 | Company | Role | Name | Email |
@@ -89,12 +89,16 @@ apply all migrations to it before running, and refuse any database whose name do
 - **The Arabic font is committed.** IBM Plex Sans Arabic (400, 500, 700; woff2; SIL OFL 1.1 in
   `src/shared/fonts/ofl.txt`) loads with `next/font/local`, so the build works with no network and the page
   needs no external font or style source (`font-src 'self'`).
+- **Login is serialized per email.** `login()` takes a Postgres advisory lock on the email inside its
+  transaction, so parallel attempts cannot all read "4 failures" and all guess. The lock count reads the
+  existing `meta->>'email'` audit index.
+- **`GET /api/auth/me`** returns the current user's name, role and company, or 401. Tests use it to prove a
+  session works or is dead; the pages read the user on the server with `requireUser()`.
 - **Rejected:** `output: "standalone"` (it leaves out the Prisma CLI needed for `migrate deploy`), a separate
   migration service (more moving parts), Testcontainers (the Compose database is enough).
 
 ## Assumptions
 
-- There is no login yet; the home page is a public placeholder that phase 2 replaces.
 - Area is in whole m². Unit types are apartment, villa, townhouse and duplex.
 - The database refuses cross-company links with composite foreign keys; services still filter by company.
 - Emails are stored trimmed and lowercase.
@@ -105,7 +109,13 @@ apply all migrations to it before running, and refuse any database whose name do
 - The database is published on `127.0.0.1:5433` only, never on the network.
 - The CI check (lint and typecheck on every pull request to `main`) runs and shows pass or fail. It is not a
   required check.
-- Until sessions exist (phase 2), API routes that need a user always answer 401.
+- Sessions last a fixed 7 days from login (no sliding renewal). Logout ends only the current device's session.
+- Login lock (phase 2): every failed login is written to the audit log with a reason, `invalid_credentials`
+  (wrong email or password) or `locked` (refused because the email is locked). An email is locked while it has 5
+  or more `invalid_credentials` rows in the last 15 minutes. `locked` rows are not counted, so retries during the
+  lock never extend it: it ends 15 minutes after the oldest of those 5 failures. While locked, the password is not
+  checked, the message is the same generic one, and the response time stays similar. Emails are counted trimmed
+  and lowercase, whether or not the account exists.
 
 ## Security
 
@@ -115,11 +125,22 @@ message and details go only to the log; mutating API requests must carry the app
 headers (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`); no `X-Powered-By`;
 the database listens on loopback only; the app container runs as a non-root user.
 
+Phase 2 controls: passwords hashed with Argon2id; database sessions where the cookie holds a random 32-byte
+token and the database stores only its SHA-256 hash; the cookie is `HttpOnly`, `Secure`, `SameSite=Lax`,
+`Path=/`, 7 days; logout deletes the session row, so a copied token stops working; one generic message for a
+wrong email, a wrong password and a locked email; an unknown email still runs one Argon2id verify, so response
+time does not reveal whether the account exists; every failed login is audited; an email is locked after 5
+failures in 15 minutes (limits below); every page and API route checks the session on the server, with no
+middleware.
+
 Known limits:
 
 - The CSP allows inline scripts (`'unsafe-inline'`). A nonce-based CSP needs a proxy on every request; it is
   not worth it for this test.
 - Log redaction reaches one level of nesting (`user.password`), not deeper. Request bodies are never logged raw.
+- The login lock is per email (phase 2). It stops guessing one account's password, but not password spraying
+  (a few common passwords tried against many accounts), and anyone who knows a user's email can lock that user
+  out for 15 minutes on purpose.
 
 The "3 biggest risks" section is written in the final phase.
 
@@ -130,6 +151,11 @@ Business features (units, clients, reservations, contracts, payments, audit log)
 - The app connects as the table owner, which could deliberately disable the append-only triggers.
   The fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and
   `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs (migrations and app).
+- No per-IP login limit and no CAPTCHA. With more time: a per-IP limit when deployed behind a trusted proxy, with
+  the client IP taken only from that proxy's header, or a CAPTCHA after repeated failures. It is not built now
+  because `docker compose up` has no proxy: requests reach the app through Docker's network, so the app sees
+  the Docker gateway address instead of each user's address. A per-IP limit would then either block everyone at
+  once or have to trust a forwarding header that any client can fake.
 
 ## AI tools
 
