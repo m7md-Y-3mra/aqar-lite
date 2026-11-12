@@ -49,6 +49,9 @@ npm run db:seed
 
 Expected: the first run creates the data; the second prints "seed data already present" and changes nothing.
 
+Atomicity (a failed seed leaves nothing behind) is proved by the integration test
+`tests/integration/prisma/seed.test.ts` › "a seed that fails midway leaves no rows" (§6).
+
 ```bash
 docker compose exec db psql -U aqar -d aqar -c "select (select count(*) from companies) c, (select count(*) from users) u, (select count(*) from units where status='AVAILABLE') un, (select count(*) from clients) cl, (select count(*) from reservations) r"
 ```

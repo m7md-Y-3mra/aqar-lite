@@ -56,15 +56,15 @@ Source: `.specify/memory/constitution.md`.
 | V | Database-Enforced Integrity | PASS | Two migrations; CHECK, UNIQUE, composite FKs, no cascade; triggers block UPDATE/DELETE/TRUNCATE on payments and audit logs. Known limit: the table owner can disable triggers (R5), listed in README "Not done". |
 | VI | Layered Feature Architecture | PASS | Only `prisma/**` and tests use Prisma directly (phase 0 lint override). No `src/` feature code. |
 | VII | Security by Default | PASS | Seed passwords stored only as Argon2id hashes; sessions store only the token hash; emails normalized by CHECK so the phase 2 lockout cannot be bypassed by letter case. |
-| VIII | Scope Discipline and Simplicity | PASS pending approval of departures 1–8 | No new dependency. Every field is from the agreed notes. Additions beyond the notes are listed below for approval. |
+| VIII | Scope Discipline and Simplicity | PASS | No new dependency. Every field is from the agreed notes. Additions beyond the notes are listed below; the user approved all 8 on 2026-11-12. |
 
-**Post-design re-check**: I–VII PASS; VIII PASS once departures 1–8 are approved.
+**Post-design re-check**: all PASS (departures 1–8 approved 2026-11-12).
 
 **Agent context**: the agent-context update script was not run. `CLAUDE.md` stays only `@AGENTS.md` (docs/phases.md; approved in phase 0).
 
-## Departures from the agreed plan notes (need approval)
+## Departures from the agreed plan notes (approved 2026-11-12)
 
-None removes or changes an agreed field. Each one adds a database rule the spec or a clarification asks for.
+The user approved all 8. None removes or changes an agreed field. Each one adds a database rule the spec or a clarification asks for.
 
 1. **Company-aware links** (clarification Q3, FR-015a): `@@unique([companyId, id])` on User, Unit, Client,
    Reservation; composite FKs for client → sales rep, reservation → unit / client / sales rep, contract → reservation.
@@ -120,7 +120,7 @@ tests/integration/prisma/seed.test.ts                       # NEW
 tests/unit/prisma/seed-data.test.ts                         # NEW: seed data shape, no DB
 
 # Docs
-README.md                                                   # CHANGED (phase 0 file): seed accounts, Assumptions, Not done
+README.md                                                   # CHANGED (phase 0 file): seed accounts, Assumptions, Not done (DB roles, see below)
 ```
 
 Migration workflow (AGENTS.md §5): `prisma migrate dev --name <name> --create-only` → add the raw SQL to the new
@@ -169,10 +169,38 @@ Abbreviations: **SC** = `schema-constraints.test.ts`, **AO** = `append-only.test
 | FR-028, Story 4 sc.5: hashed passwords | SD › "every seed password hash starts with `$argon2id$` and verifies with the README password" |
 | Story 4 sc.6: README lists accounts | README review against contracts/seed-accounts.md |
 | FR-029, Story 4 sc.4, SC-005: seed twice | SD › "a second run changes no row count in any table" |
+| Seed is all-or-nothing (makes the skip rule safe, R7) | SD › "a seed that fails midway leaves no rows": runs `runSeed(db, data)` with a copy of the seed data under fresh UUIDs and emails, whose last unit has price 0; expects 23514 `units_price_check`, then 0 rows for that copy's company, user, unit and client ids; then runs the same copy with the price fixed and expects it to seed fully (the failed run did not leave a company that would trigger the skip) |
 | FR-030: no reservations etc. from seed | SD › "seed creates no reservations, contracts, installments, payments or audit rows for seed companies" |
 | FR-023: rules owned by later phases | not tested here; listed in contracts/database.md with the owning phase |
 | FR-031, SC-007: the required tests | AO (4 cases) + SC (paid > amount, second contract, cross-company reservation) |
 | SC-006: log in with README accounts | phase 2 |
+
+## Phase 0 global-setup change: effect on phase 0 tests
+
+The change adds one step to `tests/integration/setup/global-setup.ts` (phase 0 task T035), between its
+connection check (2) and `prisma migrate deploy` (3): with the same `pg` client, run
+`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`.
+
+Checked against phase 0's tasks (the file is not written yet on `001-project-setup`, so it could not be run):
+
+- The `_test` name guard (1) and the "not reachable" message (2) run first and are unchanged, so T037's
+  "fails with a clear message when the DB is down" still holds, and the app database can never be dropped.
+- `tests/integration/server/db.test.ts` (T036) checks `current_database() = 'aqar_test'` and a rolled-back
+  `withTransaction`. Neither reads a table, so an empty, freshly migrated schema does not affect it.
+- `tests/unit/architecture/import-rules.test.ts` case (12) only checks that this file may import `pg`. Unchanged.
+- `migrate deploy` on an empty schema with no migrations (phase 0 state) prints "No pending migrations" and exits 0
+  (phase 0 R3), so the step is safe even before this phase's migrations exist.
+- The `aqar` role owns the `public` schema in the compose database, so it may drop and recreate it.
+
+**Gate in implement**: after the change, run the full phase 0 suite (`npm run test` and `npm run test:integration`)
+before writing any phase 1 test. If phase 0 is still in progress when this lands, the simpler path is to add the step
+to T035 directly on `001-project-setup`.
+
+## README "Not done": database roles (agreed 2026-11-12)
+
+Text to add: the app connects as the table owner, which could disable the append-only triggers on purpose.
+Fix with more time: a separate migration owner role (owns the tables, runs `prisma migrate deploy`) and a low-privilege app role (no ownership, so it cannot `ALTER TABLE … DISABLE TRIGGER`), with `UPDATE`, `DELETE` and `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs: one for migrations, one for the app. Not built in this phase because it changes phase 0's compose file,
+env validation and entrypoint.
 
 ## Complexity Tracking
 

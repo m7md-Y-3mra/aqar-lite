@@ -45,7 +45,7 @@ All names above were checked against the spike's generated `migration.sql` (Pris
 
 | Rule | Phase | How |
 |---|---|---|
-| Normalize email (`trim().toLowerCase()`) before lookup and before writing `LOGIN_FAILED` | 2 | otherwise the CHECK rejects the write |
+| Login trims and lowercases the email (`trim().toLowerCase()`) **before the user lookup** and before writing `LOGIN_FAILED` | 2 | the database stores only lowercase emails (`users_email_normalized_check`), so `Ali@x.test` would find no user; and the CHECK on `LOGIN_FAILED` rejects an un-normalized email |
 | `LOGIN_FAILED` rows: `meta = { email }`, `company_id`/`user_id` set only when the email matched a user | 2 | lockout count uses the partial index on `meta ->> 'email'` |
 | Allowed unit status transitions | 3–5 | conditional `UPDATE … WHERE status = …` |
 | At most one active reservation per unit | 4 | conditional `UPDATE units … WHERE status = 'AVAILABLE'` |

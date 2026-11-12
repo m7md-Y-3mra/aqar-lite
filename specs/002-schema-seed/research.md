@@ -89,9 +89,9 @@ and a `postgres:18-alpine` container (2026-11-12). The spike schema is the one i
   could switch the triggers off on purpose (`ALTER TABLE … DISABLE TRIGGER`, or
   `SET session_replication_role = replica`). The guarantee covers every statement the application sends,
   not a deliberate attack with the owner's credentials.
-  - **Not done in this phase**: a separate least-privilege runtime role (no ownership, no `TRUNCATE`, no
-    `ALTER`). It changes phase 0's compose file, env and entrypoint, and does not fit the phase 1 time budget.
-    It goes in the README "Not done" section with how to build it.
+  - **Not done in this phase** (user decision, 2026-11-12): a separate migration owner role (owns the tables, runs `prisma migrate deploy`) and a low-privilege app role (no ownership, so it cannot `ALTER TABLE … DISABLE TRIGGER`), with `UPDATE`, `DELETE` and `TRUNCATE` revoked on `payments` and `audit_logs`, and two database URLs: one for migrations, one for the app.
+    It changes phase 0's compose file, env and entrypoint, and does not fit the phase 1 time budget.
+    It goes in the README "Not done" section with this fix.
 - **Alternatives considered**: `REVOKE UPDATE, DELETE` only (rejected: the owner and superusers ignore grants,
   and phase 0 uses the owner); rules (`CREATE RULE … DO INSTEAD NOTHING`) (rejected: fail silently, and the
   spec wants a visible failure).
@@ -115,10 +115,13 @@ and a `postgres:18-alpine` container (2026-11-12). The spike schema is the one i
 - **Decision**:
   - `prisma/seed.ts` stays the entry point (phase 0's `prisma.config.ts` runs `node prisma/seed.ts`). It
     creates the Prisma client with `@prisma/adapter-pg`, calls `runSeed(prisma)` and disconnects.
-  - `prisma/run-seed.ts` exports `runSeed(db)`, so the integration test runs the same code against the test database.
+  - `prisma/run-seed.ts` exports `runSeed(db, data = SEED_DATA)`, so the integration test runs the same code against
+    the test database, and can pass a modified copy of the data to prove a failed seed leaves nothing behind.
   - `prisma/seed-data.ts` holds the data as plain constants with **fixed UUIDs** for companies, users,
     units and clients.
-  - **Skip rule**: if the first seed company id exists, log "seed data already present" and return.
+  - **Skip rule**: if the first company id of `data` exists, log "seed data already present" and return.
+    The skip is only safe because the seed is atomic: every insert runs inside **one** `$transaction`, so a
+    failure part-way leaves no rows (proved by the seed test "a seed that fails midway leaves no rows").
     Everything else runs in **one transaction**, so the database never holds half a seed, and "first company
     exists" means "the whole seed exists". The check is keyed on the seed company id, not on "any company",
     because integration tests create their own companies in the same test database.
