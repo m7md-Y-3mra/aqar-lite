@@ -230,7 +230,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
 
 **Independent Test**: [quickstart.md](./quickstart.md) §7 after the repository is pushed.
 
-- [ ] T046 [US5] Create `.github/workflows/ci.yml` per research.md R12:
+- [X] T046 [US5] Create `.github/workflows/ci.yml` per research.md R12:
   - Top level: `name: CI`, `on: pull_request: branches: [main]` (no `push` trigger), `permissions: contents: read`, `concurrency: { group: ci-${{ github.event.pull_request.number }}, cancel-in-progress: true }`.
   - Job `lint-typecheck`: `runs-on: ubuntu-latest`, `timeout-minutes: 10`. Steps:
     1. `actions/checkout@v7`
@@ -240,7 +240,7 @@ description: "Task list for Phase 0: Project Setup and Tooling"
     5. `npm run lint`
     6. `npm run typecheck`
   - No secrets, only official `actions/*`.
-- [ ] T047 [US5] Before committing the workflow, run the same commands locally on a clean install: `rm -rf node_modules src/generated && npm ci && DATABASE_URL=postgresql://ci:ci@localhost:5432/ci npx prisma generate && npm run lint && npm run typecheck`. All must pass. Do **not** create rulesets or change GitHub settings. Remote validation (quickstart.md §7) waits until the user pushes.
+- [X] T047 [US5] Before committing the workflow, run the same commands locally on a clean install: `rm -rf node_modules src/generated && npm ci && DATABASE_URL=postgresql://ci:ci@localhost:5432/ci npx prisma generate && npm run lint && npm run typecheck`. All must pass. Do **not** create rulesets or change GitHub settings. Remote validation (quickstart.md §7) waits until the user pushes.
 
 **Checkpoint**: The workflow file is committed and its commands pass locally.
 

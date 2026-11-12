@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        if: hashFiles('prisma/schema.prisma') != ''
+        run: npx prisma generate
+        env:
+          # Dummy value: prisma.config.ts requires a URL, but generate never connects.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
