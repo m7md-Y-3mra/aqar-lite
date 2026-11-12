@@ -17,6 +17,10 @@ Open **http://localhost:3000**. Mutating requests must come from an origin liste
 comma-separated list matched entry by entry; the shipped value allows `http://localhost:3000` and
 `http://127.0.0.1:3000`.
 
+The session cookie is `Secure`. Browsers accept `Secure` cookies on `http://localhost`: tested on Chromium
+(login on `http://localhost:3000` and `http://127.0.0.1:3000`); Chrome and Firefox accept them too. Safari was not
+tested.
+
 What `docker compose up` does:
 
 1. Starts PostgreSQL 18. On a new data volume it creates two databases: `aqar` (the app) and `aqar_test`
