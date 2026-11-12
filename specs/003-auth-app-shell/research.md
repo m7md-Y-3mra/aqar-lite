@@ -188,6 +188,9 @@ Vitest 5.1. Results marked **Observed** were checked in this worktree on 2026-11
   later phases. `navItemsFor(role)` filters by role. Role values and Arabic labels live in
   `src/shared/lib/roles.ts` (`MANAGER` → مدير, `SALES` → مندوب مبيعات, `ACCOUNTANT` → محاسب), so client code
   never imports the generated Prisma enum.
+- **Current user on the client**: the `(app)` layout wraps the shell in `CurrentUserProvider`, a small React context
+  holding `ShellUser`, as agreed in docs/phases.md. Client components read it with `useCurrentUser()`. It is only for
+  display and nav filtering.
 - **Rationale**: no link to a missing page (spec FR-024). The map is UI convenience only; the server checks stay
   (FR-025).
 

@@ -119,7 +119,7 @@ src/server/
 
 src/features/auth/
 ├── auth.schemas.ts               # new: loginSchema (shared by API and form)
-├── auth.types.ts                 # new: ShellUser
+├── auth.types.ts                 # new: LoginInput
 ├── server/
 │   ├── auth.routes.ts            # new: login, logout, me handlers
 │   ├── auth.service.ts           # new: login(input, now), logout(token), me(user)
@@ -136,13 +136,14 @@ src/shared/
 │   └── error-messages.ts         # change: INVALID_CREDENTIALS message
 └── components/
     ├── ui/                       # new (shadcn): button, input, label, card, sheet
-    ├── app-shell/                # new: app-shell.tsx, use-app-shell.ts (menu + logout), types.ts, index.ts
+    ├── current-user/             # new: CurrentUserProvider (context from the layout), use-current-user.ts, types.ts (ShellUser), index.ts
+    ├── app-shell/                # new: app-shell.tsx, use-app-shell.ts (menu + logout), index.ts; reads useCurrentUser()
     │   └── components/nav-menu/  # new: nav list used in sidebar and mobile menu
     └── home-welcome/             # new: home-welcome.tsx, index.ts
 
 src/app/
 ├── (app)/
-│   ├── layout.tsx                # new: requireUser() → <AppShell user={…}>
+│   ├── layout.tsx                # new: requireUser() → <CurrentUserProvider user={shellUser}><AppShell>
 │   └── page.tsx                  # moved from src/app/page.tsx: requireUser() → <HomeWelcome>
 ├── login/page.tsx                # new: getCurrentUser() → redirect("/") or <LoginForm>
 └── api/auth/
@@ -181,6 +182,11 @@ and `src/server/audit` (research R1). The login feature goes in `src/features/au
   - FR-021 exempts logout as well as login from the session check (FR-019).
 
 ## Key implementation rules (for /speckit-tasks)
+
+0. **Agreed phase notes (docs/phases.md, phase 2)**:
+   - `requireUser()` lives in `src/server/auth` and returns `SessionUser = { userId, companyId, role, name, companyName }`.
+   - The current user reaches client components through a small React context, `CurrentUserProvider`, set by the
+     `(app)` layout. It is for showing name and nav items only, never for security.
 
 1. **Login transaction**:
    - Lock the email → count `invalid_credentials` since `now − 15 min` → find the user → decide → write one
