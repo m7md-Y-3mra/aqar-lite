@@ -35,7 +35,7 @@ If you used an older volume from before the test database existed, reset it once
 
 ## Development
 
-Needs Node 22 (`.nvmrc`) and npm.
+Needs Node 22 and npm 10 (`.nvmrc`, `engines` in `package.json`). With nvm: `nvm install && nvm use`.
 
 ```bash
 npm ci
