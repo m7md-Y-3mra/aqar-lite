@@ -24,7 +24,7 @@ constraint name listed here (read from `error.meta.driverAdapterError.cause.orig
 | Reservation's sales rep in the same company | `reservations_company_id_sales_rep_id_fkey` | 23503 |
 | One contract per reservation | `contracts_reservation_id_key` | 23505 |
 | Contract's reservation in the same company | `contracts_company_id_reservation_id_fkey` | 23503 |
-| Final price > 0 | `contracts_final_price_check` | 23514 |
+| Final price > 0 (a final price ≤ 0 is reported as contracts_down_payment_check, because that check also fails and sorts first; contracts_final_price_check stays as a declared rule) | `contracts_final_price_check` | 23514 |
 | 0 ≤ down payment < final price | `contracts_down_payment_check` | 23514 |
 | Installment count ≥ 1 | `contracts_installment_count_check` | 23514 |
 | Installment position unique per contract | `installments_contract_id_seq_key` | 23505 |

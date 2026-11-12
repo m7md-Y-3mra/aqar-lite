@@ -103,13 +103,13 @@ description: "Task list for phase 1: database schema and seed"
 
 ### Tests for User Story 2
 
-- [ ] T013 [US2] In `tests/integration/prisma/schema-constraints.test.ts`, add `describe("business rules")` (spec Story 2 scenarios 1–10, FR-012, FR-016–019). Each case asserts code + constraint name from [contracts/database.md](./contracts/database.md):
+- [x] T013 [US2] In `tests/integration/prisma/schema-constraints.test.ts`, add `describe("business rules")` (spec Story 2 scenarios 1–10, FR-012, FR-016–019). Each case asserts code + constraint name from [contracts/database.md](./contracts/database.md):
   - units: price 0 and −1 (`units_price_check`), area 0 (`units_area_check`), rooms −1 (`units_rooms_check`), number `"A-101 "` (`units_number_check`); duplicate project+number in one company (23505 `units_company_id_project_name_number_key`); control: same project+number in another company and in another project of the same company are accepted.
   - contracts: final price 0, down payment −1, down payment = final price, installment count 0 (each its own CHECK name); control: down payment 0 accepted; "rejects a second contract for the same reservation" (23505 `contracts_reservation_id_key`).
   - installments: "rejects paid amount above amount" (amount `1_000_000n`, paid `1_000_001n` → `installments_paid_amount_check`); control "accepts paid = amount"; amount 0 (`installments_amount_check`); paid −1; seq −1 (`installments_seq_check`); duplicate seq in one contract (23505 `installments_contract_id_seq_key`).
   - payments: amount 0 (`payments_amount_check`); empty key (`payments_idempotency_key_check`); repeated key on one contract (23505 `payments_contract_id_idempotency_key_key`); control: same key on another contract accepted.
   - audit: "rejects LOGIN_FAILED with a mixed-case email", "rejects LOGIN_FAILED without an email" (meta `{}`) (both `audit_logs_login_failed_email_check`); control "accepts LOGIN_FAILED with no company and no user" (meta `{"email":"x@y.test"}`).
-- [ ] T014 [US2] Run `npm run test:integration`; all pass. Commit T013–T014 as `test: prove business integrity checks in the database`.
+- [x] T014 [US2] Run `npm run test:integration`; all pass. Commit T013–T014 as `test: prove business integrity checks in the database`.
 
 **Checkpoint**: User Stories 1 and 2 proven. FR-031 items "paid above amount", "second contract" and "cross-company reservation" are covered.
 

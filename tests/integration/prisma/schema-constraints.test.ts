@@ -291,3 +291,320 @@ describe("company links", () => {
     );
   });
 });
+
+describe("business rules", () => {
+  it.each([
+    {
+      name: "price 0",
+      price: 0n,
+      area: 120,
+      rooms: 3,
+      number: "A-101",
+      constraint: "units_price_check",
+    },
+    {
+      name: "price -1",
+      price: -1n,
+      area: 120,
+      rooms: 3,
+      number: "A-101",
+      constraint: "units_price_check",
+    },
+    {
+      name: "area 0",
+      price: 100_000_00n,
+      area: 0,
+      rooms: 3,
+      number: "A-101",
+      constraint: "units_area_check",
+    },
+    {
+      name: "rooms -1",
+      price: 100_000_00n,
+      area: 120,
+      rooms: -1,
+      number: "A-101",
+      constraint: "units_rooms_check",
+    },
+    {
+      name: "number with trailing whitespace",
+      price: 100_000_00n,
+      area: 120,
+      rooms: 3,
+      number: "A-101 ",
+      constraint: "units_number_check",
+    },
+  ])("rejects unit $name", async ({ price, area, rooms, number, constraint }) => {
+    const db = getDb();
+    const company = await makeCompany();
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO units (company_id, project_name, number, type, area, rooms, price)
+        VALUES (${company.id}::uuid, 'مشروع اختبار', ${number}, 'APARTMENT', ${area}, ${rooms}, ${price})
+      `,
+      { code: "23514", constraint },
+    );
+
+    expect((await makeUnit(company.id, { number: "A-101" })).number).toBe("A-101");
+  });
+
+  it("rejects a duplicate project and number in one company", async () => {
+    const db = getDb();
+    const company = await makeCompany();
+    const otherCompany = await makeCompany();
+    const unit = await makeUnit(company.id, { number: "A-101" });
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO units (company_id, project_name, number, type, area, rooms, price)
+        VALUES (${company.id}::uuid, ${unit.projectName}, ${unit.number}, 'APARTMENT', 120, 3, ${100_000_00n})
+      `,
+      { code: "23505", constraint: "units_company_id_project_name_number_key" },
+    );
+
+    expect(
+      (await makeUnit(otherCompany.id, { projectName: unit.projectName, number: unit.number }))
+        .companyId,
+    ).toBe(otherCompany.id);
+    expect(
+      (await makeUnit(company.id, { projectName: "مشروع آخر", number: unit.number })).projectName,
+    ).toBe("مشروع آخر");
+  });
+
+  it("rejects final price 0", async () => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    const reservation = await makeReservation({
+      companyId: chain.companyId,
+      unitId: chain.unitId,
+      clientId: chain.clientId,
+      salesRepId: chain.salesRepId,
+    });
+    // Any final_price <= 0 also breaks down_payment >= 0 AND down_payment < final_price; Postgres reports the first violated CHECK by name.
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO contracts (company_id, reservation_id, final_price, down_payment, installment_count)
+        VALUES (${chain.companyId}::uuid, ${reservation.id}::uuid, ${0n}, ${0n}, 10)
+      `,
+      { code: "23514", constraint: "contracts_down_payment_check" },
+    );
+
+    expect((await makeContract(chain.companyId, reservation.id)).finalPrice).toBe(100_000_00n);
+  });
+
+  it("declares the final price CHECK on contracts", async () => {
+    const constraints = await getDb().$queryRaw<{ conname: string }[]>`
+      SELECT conname FROM pg_constraint
+      WHERE conrelid = 'public.contracts'::regclass
+        AND contype = 'c'
+        AND conname = ${"contracts_final_price_check"}
+    `;
+
+    expect(constraints).toEqual([{ conname: "contracts_final_price_check" }]);
+  });
+
+  it.each([
+    {
+      name: "down payment -1",
+      downPayment: -1n,
+      installmentCount: 10,
+      constraint: "contracts_down_payment_check",
+    },
+    {
+      name: "down payment equal to final price",
+      downPayment: 100_000_00n,
+      installmentCount: 10,
+      constraint: "contracts_down_payment_check",
+    },
+    {
+      name: "installment count 0",
+      downPayment: 0n,
+      installmentCount: 0,
+      constraint: "contracts_installment_count_check",
+    },
+  ])("rejects $name", async ({ downPayment, installmentCount, constraint }) => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    const reservation = await makeReservation({
+      companyId: chain.companyId,
+      unitId: chain.unitId,
+      clientId: chain.clientId,
+      salesRepId: chain.salesRepId,
+    });
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO contracts (company_id, reservation_id, final_price, down_payment, installment_count)
+        VALUES (${chain.companyId}::uuid, ${reservation.id}::uuid, ${100_000_00n}, ${downPayment}, ${installmentCount})
+      `,
+      { code: "23514", constraint },
+    );
+
+    expect(
+      (await makeContract(chain.companyId, reservation.id, { downPayment: 0n })).downPayment,
+    ).toBe(0n);
+  });
+
+  it("rejects a second contract for the same reservation", async () => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO contracts (company_id, reservation_id, final_price, down_payment, installment_count)
+        VALUES (${chain.companyId}::uuid, ${chain.reservationId}::uuid, ${100_000_00n}, ${0n}, 10)
+      `,
+      { code: "23505", constraint: "contracts_reservation_id_key" },
+    );
+
+    const reservation = await makeReservation({
+      companyId: chain.companyId,
+      unitId: chain.unitId,
+      clientId: chain.clientId,
+      salesRepId: chain.salesRepId,
+    });
+    expect((await makeContract(chain.companyId, reservation.id)).reservationId).toBe(
+      reservation.id,
+    );
+  });
+
+  it.each([
+    {
+      name: "paid amount above amount",
+      amount: 1_000_000n,
+      paidAmount: 1_000_001n,
+      seq: 1,
+      constraint: "installments_paid_amount_check",
+    },
+    {
+      name: "installment amount 0",
+      amount: 0n,
+      paidAmount: 0n,
+      seq: 1,
+      constraint: "installments_amount_check",
+    },
+    {
+      name: "paid amount -1",
+      amount: 1_000_000n,
+      paidAmount: -1n,
+      seq: 1,
+      constraint: "installments_paid_amount_check",
+    },
+    {
+      name: "installment seq -1",
+      amount: 1_000_000n,
+      paidAmount: 0n,
+      seq: -1,
+      constraint: "installments_seq_check",
+    },
+  ])("rejects $name", async ({ amount, paidAmount, seq, constraint }) => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO installments (contract_id, seq, due_date, amount, paid_amount)
+        VALUES (${chain.contractId}::uuid, ${seq}, ${new Date(Date.UTC(2026, 0, 31))}, ${amount}, ${paidAmount})
+      `,
+      { code: "23514", constraint },
+    );
+
+    expect((await makeInstallment(chain.contractId)).seq).toBe(1);
+  });
+
+  it("accepts paid = amount", async () => {
+    const chain = await makeContractChain();
+    const installment = await makeInstallment(chain.contractId, {
+      amount: 1_000_000n,
+      paidAmount: 1_000_000n,
+    });
+
+    expect(installment.paidAmount).toBe(installment.amount);
+  });
+
+  it("rejects a duplicate seq in one contract", async () => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    const installment = await makeInstallment(chain.contractId);
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO installments (contract_id, seq, due_date, amount, paid_amount)
+        VALUES (${chain.contractId}::uuid, ${installment.seq}, ${installment.dueDate}, ${1_000_000n}, ${0n})
+      `,
+      { code: "23505", constraint: "installments_contract_id_seq_key" },
+    );
+
+    expect((await makeInstallment(chain.contractId, { seq: 2 })).seq).toBe(2);
+  });
+
+  it.each([
+    {
+      name: "payment amount 0",
+      amount: 0n,
+      idempotencyKey: randomUUID(),
+      constraint: "payments_amount_check",
+    },
+    {
+      name: "empty payment key",
+      amount: 100_000n,
+      idempotencyKey: "",
+      constraint: "payments_idempotency_key_check",
+    },
+  ])("rejects $name", async ({ amount, idempotencyKey, constraint }) => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO payments (contract_id, amount, idempotency_key)
+        VALUES (${chain.contractId}::uuid, ${amount}, ${idempotencyKey})
+      `,
+      { code: "23514", constraint },
+    );
+
+    expect((await makePayment(chain.contractId)).amount).toBe(100_000n);
+  });
+
+  it("rejects a repeated key on one contract", async () => {
+    const db = getDb();
+    const chain = await makeContractChain();
+    const otherChain = await makeContractChain();
+    const payment = await makePayment(chain.contractId);
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO payments (contract_id, amount, idempotency_key)
+        VALUES (${chain.contractId}::uuid, ${100_000n}, ${payment.idempotencyKey})
+      `,
+      { code: "23505", constraint: "payments_contract_id_idempotency_key_key" },
+    );
+
+    expect(
+      (await makePayment(otherChain.contractId, { idempotencyKey: payment.idempotencyKey }))
+        .idempotencyKey,
+    ).toBe(payment.idempotencyKey);
+  });
+
+  it.each([
+    { name: "with a mixed-case email", meta: { email: "Ali@X.test" } },
+    { name: "without an email", meta: {} },
+  ])("rejects LOGIN_FAILED $name", async ({ meta }) => {
+    const db = getDb();
+    await expectDbError(
+      db.$executeRaw`
+        INSERT INTO audit_logs (action, meta)
+        VALUES ('LOGIN_FAILED', ${JSON.stringify(meta)}::jsonb)
+      `,
+      { code: "23514", constraint: "audit_logs_login_failed_email_check" },
+    );
+
+    expect(
+      (await db.auditLog.create({ data: { action: "LOGIN_FAILED", meta: { email: "x@y.test" } } }))
+        .meta,
+    ).toEqual({ email: "x@y.test" });
+  });
+
+  it("accepts LOGIN_FAILED with no company and no user", async () => {
+    const audit = await getDb().auditLog.create({
+      data: { action: "LOGIN_FAILED", meta: { email: "x@y.test" } },
+    });
+
+    expect(audit.companyId).toBeNull();
+    expect(audit.userId).toBeNull();
+    expect(audit.meta).toEqual({ email: "x@y.test" });
+  });
+});
