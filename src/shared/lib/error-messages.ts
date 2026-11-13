@@ -1,4 +1,5 @@
 import type { ErrorCode } from "@/server/http/error-codes";
+import { formatRiyals } from "@/shared/lib/money";
 
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   VALIDATION_ERROR: "البيانات المدخلة غير صحيحة",
@@ -14,5 +15,16 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   CONTRACT_ALREADY_APPROVED: "تم اعتماد هذا العقد ولا يمكن تعديله",
   CONTRACT_CHANGED: "تم تعديل العقد بعد أن فتحته، راجع القيم الجديدة ثم اعتمد مرة أخرى",
   RESERVATION_EXPIRED: "انتهت مدة الحجز، لا يمكن إنشاء العقد أو تعديله أو اعتماده",
+  CONTRACT_NOT_APPROVED: "لا يمكن تسجيل دفعة على عقد غير معتمد",
+  PAYMENT_EXCEEDS_REMAINING: "المبلغ أكبر من المتبقي على العقد",
+  IDEMPOTENCY_KEY_REUSED: "سُجّلت هذه الدفعة من قبل بمبلغ مختلف. حدّث الصفحة وحاول مرة أخرى.",
   INTERNAL_ERROR: "حدث خطأ غير متوقع، حاول مرة أخرى",
 };
+
+export function paymentExceedsRemainingMessage(remainingHalalas: number): string {
+  return `المبلغ أكبر من المتبقي على العقد. المتبقي: ${formatRiyals(remainingHalalas)} ريال`;
+}
+
+export function idempotencyKeyReusedMessage(savedHalalas: number): string {
+  return `سُجّلت هذه الدفعة من قبل بمبلغ ${formatRiyals(savedHalalas)} ريال. حدّث الصفحة وحاول مرة أخرى.`;
+}
