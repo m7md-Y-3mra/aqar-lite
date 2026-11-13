@@ -68,5 +68,6 @@ describe("schedule", () => {
         }
       }
     }
-  });
+    // About 26 s alone; the global 30 s limit fails it when the machine is busy.
+  }, 120_000);
 });
