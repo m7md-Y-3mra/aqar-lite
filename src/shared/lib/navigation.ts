@@ -20,6 +20,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/units", label: "الوحدات", roles: ROLES },
   { href: "/clients", label: "العملاء", roles: ROLES },
   { href: "/reservations", label: "الحجوزات", roles: ["MANAGER", "SALES"] },
+  { href: "/contracts", label: "العقود", roles: ROLES },
 ];
 
 export function filterNavItems(items: readonly NavItem[], role: Role): NavItem[] {
