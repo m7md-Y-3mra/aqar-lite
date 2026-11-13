@@ -172,7 +172,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 **Independent test**: quickstart §2. 100,000 / 0 / 3 previews 33,333 / 33,333 / 33,334. Save creates a draft and the unit stays RESERVED.
 
-- [ ] T011 [US1] Server create path:
+- [x] T011 [US1] Server create path:
   - in `src/features/contracts/server/contracts.service.ts`:
     - `getContractOptions(user, reservationId)`: SALES only; own reservation else `NOT_FOUND`; returns `minFinalPrice`, `today`, `contractId`;
     - `createContract(user, input)` per research R3: SALES → own reservation → `CONTRACT_EXISTS` → `RESERVATION_EXPIRED` (`expiresAt <= dbNow`) → `minFinalPrice` (`VALIDATION_ERROR` on `finalPrice` naming the minimum with `formatRiyals`) → insert, mapping a unique violation on `contracts_reservation_id_key` or `contracts_company_id_reservation_id_key` to `CONTRACT_EXISTS`;
@@ -193,12 +193,12 @@ Check these against the rebased code in T001, and update the task text if a name
   - "tenant isolation › create from B's reservation → NOT_FOUND";
   - "concurrency › two parallel creates: one wins, one CONTRACT_EXISTS";
   - "detail › draft schedule equals buildSchedule(terms, today) with estimated true".
-- [ ] T012 [P] [US1] Shared schedule table: `src/shared/components/schedule-table/schedule-table.tsx`, `types.ts`, `index.ts`.
+- [x] T012 [P] [US1] Shared schedule table: `src/shared/components/schedule-table/schedule-table.tsx`, `types.ts`, `index.ts`.
   - Plain props: lines `{ seq, dueDate, amount, paidAmount?, status? }`, `estimatedLabel?`, `statusLabels?`.
   - Seq 0 shows "الدفعة المقدمة". Money uses `formatRiyals`; dates use `formatRiyadhDate`.
   - Its own `overflow-x-auto` wrapper.
   - No feature imports.
-- [ ] T013 [US1] Client create flow:
+- [x] T013 [US1] Client create flow:
   - `src/features/contracts/client/contracts.queries.ts`: `contractListOptions`, `contractDetailOptions`, `contractOptionsOptions`, plus `createContract` / `updateContract` / `approveContract` fetchers;
   - `src/features/contracts/client/contract-labels.ts`: status labels and `ESTIMATED_DATES_LABEL = "التواريخ تقديرية، وتُثبَّت عند الاعتماد"`;
   - `src/features/contracts/client/contract-form/` (`contract-form.tsx`, `use-contract-form.ts`, `types.ts`, `index.ts`):
@@ -209,14 +209,14 @@ Check these against the rebased code in T001, and update the task text if a name
     - on success: invalidate `contractKeys.all` and each `relatedQueryKeys`, toast, `router.push` to the detail page;
   - `src/features/contracts/client/new-contract-page/` (`new-contract-page.tsx`, `types.ts`, `index.ts`): `useQuery(contractOptionsOptions)` with loading and error states; expired → message + link to `/reservations`; `contractId` set → link to it; otherwise `ContractForm` in create mode;
   - `src/app/(app)/contracts/new/page.tsx`: `requireUser` → non-SALES `redirect("/contracts")` → `contractOptionsQuerySchema` (invalid → `notFound()`) → prefetch `contractKeys.options` → `HydrationBoundary` → `<NewContractPage relatedQueryKeys={[unitKeys.all, reservationKeys.all]} />`.
-- [ ] T014 [US1] Contract page (read-only for now):
+- [x] T014 [US1] Contract page (read-only for now):
   - `src/features/contracts/client/contract-details/` (`contract-details.tsx`, `types.ts`, `index.ts`):
     - unit, client, rep, reservation expiry (`formatRiyadhDateTime`), unit price, final price, down payment, count, approval date, remaining;
     - `ScheduleTable` with the estimated label for a draft;
     - "تعديل" link for SALES when `salesRep.id === userId && status === "DRAFT" && !reservationExpired`;
     - loading, not-found and error states;
   - `src/app/(app)/contracts/[id]/page.tsx`: `requireUser` → `contractIdSchema` (invalid → `notFound()`) → prefetch `contractKeys.detail` → `<ContractDetails role userId relatedQueryKeys={[unitKeys.all, reservationKeys.all]} />`.
-- [ ] T015 [US1] Reservations link (phase 4 files, minimal):
+- [x] T015 [US1] Reservations link (phase 4 files, minimal):
   - add `contractId: string | null` to `ReservationDto` in `src/features/reservations/reservations.types.ts`;
   - select `contract: { select: { id: true } }` in `findActiveReservations` in `src/features/reservations/server/reservations.repository.ts`;
   - map it in `src/features/reservations/server/reservations.service.ts`;
@@ -233,7 +233,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 **Independent test**: quickstart §4. Forced-failure test leaves everything unchanged.
 
-- [ ] T016 [US2] Write the approval tests first (they must fail) in `tests/integration/features/contracts/server/contracts.service.test.ts`:
+- [x] T016 [US2] Write the approval tests first (they must fail) in `tests/integration/features/contracts/server/contracts.service.test.ts`:
   - "approve › success: approvedAt set, unit SOLD, lines stored, one CONTRACT_APPROVED audit row with unitPrice and finalPrice";
   - "approve › stored lines sum to finalPrice";
   - "approve › stored due dates equal buildSchedule(terms, startDate)";
@@ -248,7 +248,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - "concurrency › two parallel approvals: one wins, one set of installments, one audit row" (×10);
   - "role checks › MANAGER cannot approve", "role checks › SALES cannot approve";
   - "tenant isolation › accountant of B approving A's contract → NOT_FOUND, nothing changes".
-- [ ] T017 [US2] Implement `approveContract(user, id, seen)` in `src/features/contracts/server/contracts.service.ts`, exactly per research R5 (approved 2026-11-13):
+- [x] T017 [US2] Implement `approveContract(user, id, seen)` in `src/features/contracts/server/contracts.service.ts`, exactly per research R5 (approved 2026-11-13):
   1. ACCOUNTANT else `FORBIDDEN`.
   2. `withTransaction`:
      1. `lockContract` (none → `NOT_FOUND`);
@@ -265,7 +265,7 @@ Check these against the rebased code in T001, and update the task text if a name
   Rules: no service calls inside the transaction, and no `releaseExpired`.
 
   Also add `approveContractHandler` (body `contractTermsInputSchema`) in `contracts.routes.ts` and `src/app/api/contracts/[id]/approve/route.ts` exporting `POST`. T016 must pass.
-- [ ] T018 [US2] Approve button:
+- [x] T018 [US2] Approve button:
   - `src/features/contracts/client/contract-details/components/approve-contract-button/` (`approve-contract-button.tsx`, `use-approve-contract-button.ts`, `types.ts`, `index.ts`):
     - confirm, then send the three shown values; spinner and disabled while pending;
     - 409 → `Alert` at the top; `CONTRACT_CHANGED` also invalidates the detail;
@@ -282,7 +282,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 **Independent test**: quickstart §3. A `PATCH` on an approved contract → 409, values unchanged.
 
-- [ ] T019 [US3] Server edit path:
+- [x] T019 [US3] Server edit path:
   - `updateContract(user, id, input)` per research R4 in `src/features/contracts/server/contracts.service.ts`: SALES → own contract else `NOT_FOUND` → approved → `CONTRACT_ALREADY_APPROVED` → expired → `RESERVATION_EXPIRED` → `minFinalPrice` → `updateDraftTerms` (0 → `CONTRACT_ALREADY_APPROVED`);
   - `updateContractHandler` (PATCH) in `contracts.routes.ts`, and add `PATCH` to `src/app/api/contracts/[id]/route.ts`.
 
@@ -293,7 +293,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - "ownership › rep cannot edit another rep's draft → NOT_FOUND";
   - "role checks › MANAGER cannot edit", "role checks › ACCOUNTANT cannot edit";
   - "concurrency › edit vs approve never both succeed" (×10).
-- [ ] T020 [US3] Edit page:
+- [x] T020 [US3] Edit page:
   - `src/features/contracts/client/edit-contract-page/` (`edit-contract-page.tsx`, `types.ts`, `index.ts`): `useQuery(contractDetailOptions)`; approved or expired → message and no form; else `ContractForm` in edit mode, prefilled;
   - `src/app/(app)/contracts/[id]/edit/page.tsx`: non-SALES → `redirect(`/contracts/${id}`)`; prefetch the detail; `<EditContractPage relatedQueryKeys={[reservationKeys.all]} />`.
 
@@ -305,7 +305,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 **Independent test**: quickstart §6; each role sees exactly what it should.
 
-- [ ] T021 [US4] Server list path:
+- [x] T021 [US4] Server list path:
   - `listContracts(user, query)` in `src/features/contracts/server/contracts.service.ts`: SALES scoped; `sumPaidByContract` for approved ids; `reservationExpired`; `remaining`;
   - `listContractsHandler` in `contracts.routes.ts`, and add `GET` to `src/app/api/contracts/route.ts`.
 
@@ -324,7 +324,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - "detail › remaining after setting paid amounts";
   - "tenant isolation › accountant/manager of A never list B's contracts";
   - "tenant isolation › detail, edit, approve of B's contract from A → NOT_FOUND".
-- [ ] T022 [US4] Contracts list UI:
+- [x] T022 [US4] Contracts list UI:
   - `src/features/contracts/client/contracts-page/` (`contracts-page.tsx`, `use-contracts-page.ts`, `index.ts`, and `components/contracts-table/` with `contracts-table.tsx`, `types.ts`, `index.ts`):
     - `useQuery` + `keepPreviousData`;
     - skeleton, empty "لا توجد عقود بعد", error with retry;
@@ -337,7 +337,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 ## Phase 7: Polish
 
-- [ ] T023 HTTP-level tests in `tests/integration/features/contracts/server/contracts.routes.test.ts`:
+- [x] T023 HTTP-level tests in `tests/integration/features/contracts/server/contracts.routes.test.ts`:
   - "POST as accountant → 403";
   - "PATCH as manager → 403";
   - "PATCH on approved → 409";
@@ -345,7 +345,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - "409 body has code CONTRACT_CHANGED and the Arabic message";
   - "GET /api/contracts/{B id} as A → 404";
   - "route modules export only the documented methods" (`Object.keys` of each `route.ts`: `["GET","POST"]`, `["GET"]`, `["GET","PATCH"]`, `["POST"]`).
-- [ ] T024 [P] Update `README.md`:
+- [x] T024 [P] Update `README.md`:
   - **Assumptions**: spec Assumptions and clarifications Q1–Q4.
   - **Technical decisions**:
     - R1 schedule and whole riyals;
