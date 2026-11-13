@@ -121,6 +121,20 @@ describe("handleRoute error mapping", () => {
     });
   });
 
+  it("uses an AppError's own user message instead of the default", async () => {
+    const route = handleRoute({
+      auth: "public",
+      handler: async () => {
+        throw new AppError("PAYMENT_EXCEEDS_REMAINING", undefined, "المتبقي: ١٠ ريال");
+      },
+    });
+    const res = await route(new Request(URL_), undefined);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: { code: "PAYMENT_EXCEEDS_REMAINING", message: "المتبقي: ١٠ ريال" },
+    });
+  });
+
   it("maps ZodError to 400 with field errors", async () => {
     const route = handleRoute({
       auth: "public",
