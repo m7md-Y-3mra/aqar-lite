@@ -1,7 +1,11 @@
 # Aqar Lite
 
 A multi-tenant system to sell real-estate units by installments (Next.js, PostgreSQL, Prisma).
-This README grows with each phase. Through **phase 6**, database setup, authentication, units, clients, reservations, contracts and payments are implemented. The home page remains a simple Arabic RTL landing page.
+Many companies share one system, and no company can see another's data. Staff log in by role (manager, sales
+rep, accountant): the manager adds units, changes prices and reads the audit log; a sales rep adds clients,
+reserves a unit for 72 hours and drafts a contract with a schedule preview; the accountant approves the
+contract (the unit becomes sold and the monthly schedule is fixed) and records payments, which fill the oldest
+installments first. The UI is Arabic, right-to-left, and works on mobile and desktop.
 
 ## Running
 
@@ -33,10 +37,22 @@ What `docker compose up` does:
 | App      | `http://localhost:3000`                                      |
 | Database | `127.0.0.1:5433` (loopback only; change with `DB_HOST_PORT`) |
 
-The database uses host port **5433** so it does not clash with a Postgres already running on 5432.
-The first build takes several minutes (base images and `npm ci`); later builds use the cache.
+The database uses host port **5433** so it does not clash with a Postgres already running on 5432. Port 3000
+(app) is fixed; the database port can be changed with `DB_HOST_PORT=5434 docker compose up`. Both must be free.
+The first build takes several minutes (base images and `npm ci`); later builds use the cache. Stopping and
+starting again keeps the data; the seed never adds duplicates.
 
 If you used an older volume from before the test database existed, reset it once: `docker compose down -v`.
+
+The full flow by hand, with the accounts below:
+
+1. `manager@ufuq.test`: **الوحدات** → edit an available unit and change its price.
+2. `sales1@ufuq.test`: **الوحدات** → reserve an available unit for one of your clients; **الحجوزات** →
+   create the contract (final price, down payment, number of installments) and check the schedule preview.
+3. `accountant@ufuq.test`: **العقود** → open the draft → approve; then record a payment on the contract page.
+4. `manager@ufuq.test`: **سجل التدقيق** → the price change, the approval and the payment are listed, newest first.
+   A failed login on any Ufuq account is listed too.
+5. `manager@nukhba.test`: none of Ufuq's units, clients, contracts or audit events are visible.
 
 Demo accounts. Log in at http://localhost:3000/login. Password for every account: `AqarLite#2026`
 (demo only; stored only as an Argon2id hash).
@@ -79,26 +95,61 @@ apply all migrations to it before running, and refuse any database whose name do
 
 ## Technical decisions
 
+Each decision says what was chosen, why, and what was rejected.
+
+Core choices (all phases):
+
+- **Layers: route → service → repository, by feature.** Route handlers only check the session, parse input
+  with Zod and call a service; services hold every business rule, role and ownership check and transaction;
+  repositories hold the Prisma queries. Pure money and date logic lives in `features/<f>/domain/`. Features
+  depend one way: payments → contracts → reservations → units, clients. Rejected: business logic in route
+  handlers or React components (the brief asks for a separate layer and it cannot be unit-tested there).
+- **Route Handlers + TanStack Query, no Server Actions.** Pages call `requireUser()`, prefetch with the same
+  query key and the service, and hydrate; the browser reads and writes through `/api`. Every endpoint is a
+  plain HTTP route with the same auth wrapper and the same tests. Rejected: Server Actions (a second kind of
+  endpoint to secure and test), a separate API server (more to run for no gain at this size).
+- **Money is integer halalas.** `BIGINT` in PostgreSQL, `number` in code and JSON (the cap of 1,000,000,000
+  riyals is far below 2^53), and riyals ⇄ halalas only in `src/shared/lib/money.ts`. Rejected: `float`
+  (rounding errors) and `Decimal` (needs a decimal library in code and strings in JSON).
+- **Derived state is computed, never stored.** Installment status, the remaining amount and "reservation is
+  active" are computed from stored facts on read. Rejected: status columns (they drift from the facts).
+- **Hand-written auth with database sessions.** 32-byte random token in an `HttpOnly`, `Secure`,
+  `SameSite=Lax` cookie; only its SHA-256 hash is stored; logout deletes the row. Passwords use Argon2id
+  (`@node-rs/argon2`). Rejected: JWT (cannot be revoked at logout without a deny list), Auth.js or Better Auth
+  (more surface than login and logout need), bcrypt (Argon2id is the current recommendation).
+- **Integrity rules also live in the database.** Checks, unique keys, composite foreign keys (a row can only
+  point to rows of its own company) and triggers (payments and audit rows are append-only; approved contracts
+  are frozen). Rejected: code-only checks (one bug or one manual SQL statement would break them).
+- **Integration tests use the real Postgres.** A second database, `aqar_test`, in the same container.
+  Rejected: mocks (they cannot prove locks, triggers or races) and Testcontainers (the Compose database is enough).
+
+Phase 0–2:
+
 - **Production build in Docker.** The image builds the app and runs `next start`, so reviewers see what would
-  ship. Developers use `npm run dev` for hot reload.
+  ship. Developers use `npm run dev` for hot reload. Rejected: `next dev` in the container (not what ships,
+  slower, different error pages).
 - **Version pins.** TypeScript 6.0 (not 7: `typescript-eslint` supports `<6.1`), ESLint 9 (not 10: plugins used
   by `eslint-config-next` support up to 9), Prisma 7.10.1 pinned exactly (npm's `latest` tag for the Prisma CLI
-  points to an 8.0 release candidate).
+  points to an 8.0 release candidate). Rejected: floating `latest` versions (a fresh `npm ci` could break lint).
 - **Prisma 7 with `@prisma/adapter-pg`.** Prisma 7 has no built-in query engine and needs a driver adapter.
+  Rejected: Drizzle (both are allowed by the brief; Prisma's migrations and typed client were the faster path).
 - **Settings are checked at startup, never at build time.** `getEnv()` is lazy, so building the image needs no
   secrets. The container entrypoint and `src/instrumentation.ts` both refuse to start with a bad setting and list
-  every bad variable without printing values.
+  every bad variable without printing values. Rejected: checking at build time (the image would need secrets).
 - **Layer rules are enforced by tooling.** ESLint blocks ORM imports outside `*.repository.ts` and
   `src/server/db.ts`, and server imports in client and shared code. Every server file starts with
-  `import "server-only"`, so `next build` also fails if client code imports it. Tests prove both.
+  `import "server-only"`, so `next build` also fails if client code imports it. Tests prove both. Rejected:
+  rules written only in a document (nothing stops a break).
 - **The Arabic font is committed.** IBM Plex Sans Arabic (400, 500, 700; woff2; SIL OFL 1.1 in
   `src/shared/fonts/ofl.txt`) loads with `next/font/local`, so the build works with no network and the page
-  needs no external font or style source (`font-src 'self'`).
+  needs no external font or style source (`font-src 'self'`). Rejected: `next/font/google` (network at build time).
 - **Login is serialized per email.** `login()` takes a Postgres advisory lock on the email inside its
   transaction, so parallel attempts cannot all read "4 failures" and all guess. The lock count reads the
-  existing `meta->>'email'` audit index.
+  existing `meta->>'email'` audit index. Rejected: a separate counter table (a second source of truth next to
+  the audit rows).
 - **`GET /api/auth/me`** returns the current user's name, role and company, or 401. Tests use it to prove a
-  session works or is dead; the pages read the user on the server with `requireUser()`.
+  session works or is dead; the pages read the user on the server with `requireUser()`. Rejected: auth checks
+  in middleware (it runs before the route and cannot replace the per-request check in each handler).
 - **Rejected:** `output: "standalone"` (it leaves out the Prisma CLI needed for `migrate deploy`), a separate
   migration service (more moving parts), Testcontainers (the Compose database is enough).
 
@@ -131,12 +182,15 @@ apply all migrations to it before running, and refuse any database whose name do
   updates 0 rows. After 0 rows the unit is re-read: missing (or another company's) → 404, otherwise 409
   `UNIT_NOT_AVAILABLE`. Tests run two reps in parallel ten times in a row, through the service and through
   the HTTP handlers. Lock order is always release first, then the unit row. Inside a transaction a service
-  calls only repository functions that take `tx`, never another service, so no transaction nests.
+  calls only repository functions that take `tx`, never another service, so no transaction nests. Rejected:
+  read the status, then update (two reps both read `AVAILABLE`), and a unit lock held across the request.
 - **One clock.** The expiry is written as `now() + 72 hours` in SQL, and "active" is read against the
   database `now()`. The list returns that `asOf` time, so "time left" never uses the browser clock.
+  Rejected: the app server clock or the browser clock (they can differ from the database and from each other).
 - **The reserve dialog is a page-level slot.** `units/page.tsx` passes `<ReserveUnitDialog />` into
   `<UnitsPage reserveDialog={…} />`. The units feature never imports the reservations feature. The dialog
   opens from `?reserve=<unitId>` and closes by removing it, so a reload reopens it on the same unit.
+  Rejected: importing the reservations dialog inside the units feature (a cross-feature client import).
 
 - **One schedule function (phase 5).** `features/contracts/domain/schedule.ts › buildSchedule` is pure and
   works on integer halalas and `YYYY-MM-DD` strings. The down payment is line 0, due on the start date, and
@@ -163,15 +217,17 @@ apply all migrations to it before running, and refuse any database whose name do
 - **Approval is all or nothing, and proven so.** A test adds a temporary database trigger that makes the
   approval's audit insert (its last write) fail, then checks the contract is still a draft, the unit is
   still reserved, and no installments or audit row exist. No mocks: it is a real database failure.
+  Rejected: a mocked repository that throws (it would not prove the database rolled back).
 - **Calendar dates stay strings.** Due dates are `YYYY-MM-DD` in the domain and are stored as UTC midnight of
   that day in a `date` column. A `Date` built at Riyadh midnight is 21:00 UTC the day before, which Prisma
   would store as the previous day. "Today" is the Riyadh date of the database clock, sent to the browser,
-  so the preview and the statuses never depend on the device's clock or time zone.
+  so the preview and the statuses never depend on the device's clock or time zone. Rejected: `Date` objects for
+  calendar days (they shift by a day across time zones).
 - **Approved contracts are frozen in the database.** A trigger refuses any `UPDATE` or `DELETE` of a contract
   row whose `approved_at` is set, and another lets an installment change only its `paid_amount` (for
   payments) and never be deleted. A check caps the final price at 1,000,000,000 riyals, like the unit price.
   The service also edits drafts with `UPDATE … WHERE approved_at IS NULL`, so an edit that races an approval
-  gets 409.
+  gets 409. Rejected: relying on the service check alone (a direct SQL update would still change money terms).
 - **Payments run one at a time per contract.** Recording a payment locks the contract row (`FOR UPDATE`)
   first, then checks the `Idempotency-Key`, then the amount, then stores the payment, adds the paid amounts
   and writes the audit row, all in one transaction. Under READ COMMITTED each statement after the lock sees
@@ -181,7 +237,23 @@ apply all migrations to it before running, and refuse any database whose name do
   with retries (a retry loop), and the unique key index alone (stops duplicates, not overpayment).
 - **Allocation is a pure function** (`features/payments/domain/allocation.ts`): lowest line number first,
   skips full lines, and the applied amounts always add up to the payment. A new payment returns 201; a replay
-  returns 200 with the same body.
+  returns 200 with the same body. Rejected: allocating inside SQL (harder to unit-test edge cases such as a
+  payment that spans several lines).
+- **The audit log is its own read-only feature (phase 7).** `features/audit-log/` reads `audit_logs` with a
+  repository that requires the session company, so rows of another company and failed logins with an unknown
+  email (no company) never match. Only `MANAGER` passes the service check. The API has only `GET`. Rejected:
+  adding the paged read to the shared `src/server/audit/` write helper (it would mix a screen's query into
+  infrastructure that four features use).
+- **Audit details are parsed per event type on the server.** Each of the four event types has a Zod schema for
+  the details its writer stores. The API sends a typed object, or `null` if the stored details do not match;
+  the browser never receives the raw JSON. For a failed login only the typed email and the reason are sent,
+  not the name of the targeted account. A test creates each event through its real writer (login, price
+  change, approval, payment) and checks every row reads back, so a writer that changes its details fails it.
+  Rejected: sending the raw JSON and formatting it in the component (unchecked data in the browser, logic
+  in React).
+- **No `npm audit fix`.** `npm audit` shows 0 high and 0 critical findings; the 7 moderate ones are in the
+  `@typescript-eslint/*` lint tooling (dev only, not in the image). Rejected: `npm audit fix --force` (it would
+  move the TypeScript and typescript-eslint pins above for findings the brief does not require fixing).
 
 ## Assumptions
 
@@ -279,7 +351,59 @@ apply all migrations to it before running, and refuse any database whose name do
 - Who recorded each payment and how it was split across installments are kept in the `PAYMENT_RECORDED`
   audit row (amount, `[{ seq, applied }]`, remaining after), not shown on the contract page.
 
+### Phase 7: audit log and delivery
+
+- Only a manager reads the audit log: newest first, 20 per page (at most 50), with no filters (agreed in
+  clarify; a filter is in "Not done"). Accountants and sales reps have no nav item, the page sends them home,
+  and the API returns 403.
+- The log shows only the manager's company. A failed login with an email that matches no account belongs to no
+  company, so no one sees it in the app; it stays in the database for the login lock.
+- A failed login against a real account is shown with the email that was typed, not the account holder's
+  name: the stored account is only the target, not proof that this employee typed the wrong password.
+- Each row shows the event type as a colored badge, the time in Saudi time, the user, and the details in
+  Arabic: old and new price; the approved terms; the payment amount, how it was split (installment 0 is the
+  down payment) and the remaining amount; the reason for a failed login. Price changes link to the unit,
+  approvals and payments to the contract. Those pages run their own role and company checks.
+- The brief's "Extra" items (a Playwright test and tests in CI) were not built: time went to the required
+  items. They are in "Not done" with how they would be built.
+
 ## Security
+
+### The 3 biggest risks
+
+We assume the attacker is a logged-in user of one of the companies.
+
+1. **Cross-company data leak (IDOR).** An attacker changes an id in a URL or a request body to read or change
+   another company's unit, client, contract, payment or audit event. Handled: the company comes only from the
+   server session; every repository function requires `companyId` and filters by it; another company's record
+   answers 404 (the same as a missing one, so ids cannot be probed); composite foreign keys stop a row from
+   pointing at another company's row even with a bug in the code. Details in "How company isolation is
+   guaranteed" below. Proven by the "company B" cases in every
+   `tests/integration/features/*/server/*.service.test.ts` and `*.routes.test.ts` (for example
+   `units.routes.test.ts` › "GET /api/units?companyId=<company B id> still lists only company A units") and by
+   `tests/integration/prisma/schema-constraints.test.ts` › "rejects a client whose sales rep belongs to another
+   company".
+2. **Privilege escalation and mass assignment.** A sales rep calls the API directly to change a price, approve
+   a contract or record a payment, or sends fields such as `companyId`, `salesRepId`, `status`, `approvedAt`
+   or a schedule in the body. Handled: every service checks the role and the owner before it acts (hiding a
+   button is never the check); input schemas are allowlists built with `.pick()`, and only the parsed input
+   reaches Prisma, so extra fields are dropped; owner, company, status and dates come from the session and
+   the database. Proven by `units.routes.test.ts` › "PATCH with a valid body as SALES returns 403" and
+   "POST as MANAGER returns 201 and strips status and companyId", `reservations.service.test.ts` › "ignores
+   hand-sent expiresAt, salesRepId, companyId, status", `payments.service.test.ts` › "MANAGER and SALES cannot
+   record (FORBIDDEN), nothing saved", and the 403 cases in `audit-log.routes.test.ts`.
+3. **Duplicated money operations.** Two reps reserve one unit at the same moment; a double click or a network
+   retry records a payment twice; two accountants together pay more than the remaining amount. Handled: a
+   reservation is one conditional `UPDATE … WHERE status = 'AVAILABLE'`, so only one request can win; a
+   payment needs an `Idempotency-Key` (unique per contract) and runs in one transaction that locks the
+   contract row first, so the second copy returns the first payment and the second accountant sees the new
+   remaining amount; payments are append-only (database trigger). Proven by `reservations.routes.test.ts` ›
+   "two parallel POSTs from two rep sessions: one 201, one 409", and `payments.service.test.ts` › "parallel
+   requests with the same key → exactly one payment (×5)" and "two parallel payments above the remaining
+   amount → exactly one succeeds (×5)".
+
+Dependency audit: `npm audit` reports 0 critical and 0 high findings. The 7 moderate findings are in the
+`@typescript-eslint/*` lint tooling, which is a dev dependency and not in the image (see Technical decisions).
 
 Phase 0 controls: settings validated at startup; secrets only in environment variables (`.env.example` has
 none); logs redact password, token, cookie and authorization fields; unknown errors return a generic Arabic
@@ -320,11 +444,52 @@ the key from the header. Every payments query reaches the company through the co
 company's contract is 404 even with a known key. Payments and audit rows cannot be changed or deleted
 (phase 1 triggers), and the payments API has no update or delete method (a test checks the route exports).
 
-The "3 biggest risks" section is written in the final phase.
+Phase 7 controls: only managers read the audit log (service check, 403 for others); the query reads only the
+session company, so failed logins with an unknown email are never shown; stored details are parsed per event
+type and the raw JSON never reaches the browser; the typed email of a failed login is chosen by an outsider, so
+it is rendered as plain text (React text, no `dangerouslySetInnerHTML`, enforced by a test) and shortened on
+screen; the audit API has only `GET`, and the database refuses any update or delete of an audit row.
+
+## How company isolation is guaranteed
+
+1. **The company comes only from the session.** `requireUser()` (pages) and `handleRoute({ auth: "user" })`
+   (API) load the session by the hash of the cookie token and return `{ userId, companyId, role }` from the
+   user row. No input schema has a `companyId` field, so a value sent in a body or query string is dropped.
+2. **Every data access takes the company.** Every repository function has a required `companyId` argument and
+   puts it in the `WHERE` clause (payments and installments reach it through their contract). Only
+   repositories import Prisma, and ESLint fails the build if any other file does, so no query can skip this.
+3. **The database checks it too.** Tables carry `company_id`, and composite foreign keys such as
+   `(company_id, client_id)` on reservations mean a reservation, contract or client cannot point at another company's row,
+   even if the code had a bug.
+4. **Another company's record answers 404.** Services load a record by id and session company together, so
+   "exists in another company" and "does not exist" give the same answer and ids cannot be probed.
+5. **Three lookups run before the company is known** (constitution I): the user by login email, the session
+   by token hash, and the count of recent failed logins by email. They cannot take a company because they are
+   how the company is found. Each returns only the caller's own user or session, or a number, and everything
+   after them takes `companyId` from the session.
+6. **Tests prove it for every feature**, each with two companies made by `makeTwoCompanies()`:
+   `tests/integration/features/units/server/units.service.test.ts` and `units.routes.test.ts`,
+   `tests/integration/features/clients/server/clients.repository.test.ts` and `clients.routes.test.ts`,
+   `tests/integration/features/reservations/server/reservations.service.test.ts` and `reservations.routes.test.ts`,
+   `tests/integration/features/contracts/server/contracts.repository.test.ts` and `contracts.service.test.ts`,
+   `tests/integration/features/payments/server/payments.service.test.ts` and `payments.routes.test.ts`,
+   `tests/integration/features/audit-log/server/audit-log.service.test.ts`, and
+   `tests/integration/prisma/schema-constraints.test.ts` for the database rules.
 
 ## Not done
 
-Units, clients, reservations, contracts and payments are implemented. The audit-log screen remains for the last phase.
+Every required item of the brief is built. These were left out, each with how it would be built:
+
+- Audit log filters: no event-type or date-range filter (agreed in clarify). Built as two more validated query
+  fields (`action` from the four types, `from`/`to` as Riyadh days turned into instants) and a `WHERE` on the
+  existing `(company_id, created_at)` index, kept in the URL like the units filters.
+- Playwright E2E (brief "Extra"): one spec against the `docker compose` stack that logs in as `sales1`,
+  reserves an available unit, drafts the contract, logs in as `accountant`, approves and records a payment,
+  then checks the contract shows it. It would pick any available unit so it can run twice on the same data.
+  Needs `@playwright/test` as a new dev dependency.
+- Tests in CI (brief "Extra"): `.github/workflows/ci.yml` runs lint and typecheck on pull requests. With more
+  time it would add a `postgres:18` service, `prisma generate`, `npm run test` and
+  `TEST_DATABASE_URL=… npm run test:integration`.
 
 - Payments: no refund or correction (a payment cannot change; a correction would be a new, audited
   adjustment record), and the payments list on a contract is not paged (it is entered by hand, so it stays
@@ -351,5 +516,12 @@ Units, clients, reservations, contracts and payments are implemented. The audit-
 
 ## AI tools
 
-Claude Code and Codex were used to write the specs, plans and tasks for each phase, to implement the code, and to
-review it. Every change was re-run and reviewed before it was committed.
+AI tools were used in every phase, with SpecKit as the workflow (`specs/001-…` to `specs/008-…`):
+
+- **Specs, clarifications, plans and tasks:** written with Claude Code from the brief. Open business rules
+  (for example 120 installments at most, the 31 January rule, no audit filters) were asked in the clarify
+  step, decided by the developer, and recorded in the spec and in "Assumptions" above.
+- **Code:** written by Claude Code and by Codex (through the pi CLI) from the task lists, part by part.
+- **Review:** each part's diff was read against `AGENTS.md` and the constitution, the full lint, typecheck,
+  unit and integration suites were run, race tests were checked to fail against the old code, and
+  `/security-review` ran before each merge.
