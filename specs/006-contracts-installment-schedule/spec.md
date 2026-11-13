@@ -12,6 +12,15 @@
 
 > **Dependency**: This branch was cut from `main`, which does not have phase 4 (reservations, the reservations page, and the release of expired reservations that is safe under concurrent requests). Contracts are created only from an active reservation, so phase 4 must be merged into `main`, and this branch rebased onto it, before `/speckit-implement` (constitution, Development Workflow: a phase starts only when the previous phase is merged). The plan may be written now.
 
+## Clarifications
+
+### Session 2026-11-13
+
+- Q: What is the highest number of monthly installments a draft may have (docs/phases.md clarify focus for this phase)? → A: 120 months. The brief sets only a minimum of 1; 120 is a safety bound against huge inputs and one constant if it needs to change.
+- Q: May a sales rep set a final price above the unit price? → A: Yes, up to the global limit of 1,000,000,000 riyals. The brief sets only a floor (at most 5% discount). Control: only an accountant approves, after comparing the values, and the approval audit row records both the unit price and the final price.
+- Q: What should the preview and the draft contract page show for due dates? → A: Estimated calendar dates from the same schedule function used at approval, with today (Asia/Riyadh) as the start date, under the label "التواريخ تقديرية، وتُثبَّت عند الاعتماد". After approval, the stored dates are shown with no label.
+- Q: Which status filter should the contracts list have? → A: No filter. The list shows drafts first, then approved contracts; a draft whose reservation expired is marked "reservation expired" in the list.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Sales rep creates a draft contract from their active reservation, with a schedule preview (Priority: P1)
@@ -25,7 +34,7 @@ A sales rep opens their reservations page and chooses "create contract" on one o
 **Acceptance Scenarios**:
 
 1. **Given** a sales rep with an active reservation that has no contract, **When** they enter a valid final price, down payment and installment count and save, **Then** a draft contract is created for that reservation, the rep is taken to the contract page, and the unit stays "reserved".
-2. **Given** the create form, **When** the rep changes any of the three values, **Then** the preview updates without saving, shows each line with its amount and its estimated due date, and shows a total equal to the final price. The preview says clearly that the dates are estimated as if the contract were approved today, and that the real dates are fixed on approval.
+2. **Given** the create form, **When** the rep changes any of the three values, **Then** the preview updates without saving, shows each line with its amount and its estimated due date, and shows a total equal to the final price. The schedule carries the label "التواريخ تقديرية، وتُثبَّت عند الاعتماد" (the dates are estimated as if the contract were approved today, and are fixed on approval).
 3. **Given** a unit price of 500,000 riyals, **When** the rep enters a final price below 475,000 riyals, **Then** the save is refused with a message next to the final price field that names the lowest allowed price.
 4. **Given** a unit price whose 95% has a fraction of a halala, **When** the system computes the lowest allowed final price, **Then** it rounds up to the next whole halala, so the discount never exceeds 5%.
 5. **Given** a down payment equal to or above the final price, **When** the rep saves, **Then** it is refused with a message next to the down payment field.
@@ -102,7 +111,7 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
 6. **Given** a schedule line due today or later with nothing paid, **When** it is shown, **Then** its status is "unpaid". A line due today is not overdue.
 7. **Given** a down payment line that was not paid on the approval date, **When** the contract is viewed on the next day, **Then** the down payment line is "overdue".
 8. **Given** an approved contract, **When** it is shown, **Then** the remaining amount equals the final price minus the sum of all paid amounts. Right after approval it equals the final price.
-9. **Given** a draft, **When** it is opened, **Then** the page shows "draft", the three values, the schedule preview with dates estimated as if approved today (labelled as estimated), and no line statuses or paid amounts.
+9. **Given** a draft, **When** it is opened, **Then** the page shows "draft", the three values, the schedule preview with dates estimated as if approved today under the label "التواريخ تقديرية، وتُثبَّت عند الاعتماد", and no line statuses or paid amounts. An approved contract shows its stored dates with no label.
 10. **Given** a draft whose reservation has expired, **When** it is shown in the list or opened, **Then** it is marked "reservation expired", and the approve and edit actions are not offered.
 11. **Given** a contract of another company, or a contract from another rep's reservation for a sales rep, **When** a user opens it by its address or calls the server directly, **Then** the answer is "not found" (404).
 12. **Given** more contracts than fit on one page, **When** the user moves to the next page, **Then** the next slice is shown with no contract repeated or skipped.
@@ -119,7 +128,7 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
 - **Down payment 0**: no down payment line exists. The first line is installment 1, due one month after approval.
 - **One installment**: the whole amount left after the down payment is one line due one month after approval.
 - **Tiny remainder**: if the amount left after the down payment is less than 1 riyal per installment, the draft is refused at save time, because every line must be at least 1 riyal.
-- **Final price above the unit price**: allowed. The brief sets only a floor (see Assumptions).
+- **Final price above the unit price**: allowed, up to 1,000,000,000 riyals. The brief sets only a floor (see Assumptions).
 - **Midnight in Saudi time**: the start date and "today" are always the calendar date in Saudi time (Asia/Riyadh), not the server's or the browser's date.
 - **Due today**: not overdue. A line becomes overdue on the day after its due date if it is not fully paid.
 - **Double click on save or approve**: the button cannot be pressed again while the request runs. A second create request is refused as "contract already exists"; a second approve request is refused as "already approved".
@@ -158,7 +167,7 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
   - installment *i* (from 1) is due *i* months after the start date, counted from the start date each time; if that day does not exist in the month, it is due on the last day of that month.
 - **FR-013**: The sum of all schedule lines MUST equal the final price exactly, to the halala, for every valid set of values.
 - **FR-014**: If the down payment is 0, no down payment line MUST exist, and nothing MUST be due on the start date.
-- **FR-015**: Before approval, the preview MUST use today's date in Saudi time as an estimated start date and MUST say the dates are estimated. On approval, the start date MUST be the approval date in Saudi time, and the stored due dates MUST be computed from it.
+- **FR-015**: Before approval, the create and edit preview and the draft contract page MUST run the same schedule rule (FR-012) with today's date in Saudi time as the start date, and MUST show the label "التواريخ تقديرية، وتُثبَّت عند الاعتماد" on the schedule. On approval, the start date MUST be the approval date in Saudi time, and the stored due dates MUST be computed from it. An approved contract MUST show its stored dates with no label.
 
 **Editing a draft**
 
@@ -172,14 +181,14 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
 - **FR-020**: Approval MUST be refused with a clear Arabic message if the reservation has expired.
 - **FR-021**: The approve request MUST carry the final price, the down payment and the installment count that the accountant saw. If any of them differs from the stored draft at the moment of approval, approval MUST be refused as a conflict (409) with a clear Arabic message that the contract changed, and the accountant's view MUST refresh.
 - **FR-022**: Approving an already approved contract MUST be refused as a conflict (409) with a clear Arabic message. When two approvals arrive at the same moment, exactly one MUST succeed.
-- **FR-023**: Approval MUST happen as one all-or-nothing step: the contract becomes approved with its approval time, the unit changes from reserved to sold, the schedule lines are stored, and one contract-approval audit row is written (who approved, which contract, and the approved values). If any part fails, none of it MUST remain.
+- **FR-023**: Approval MUST happen as one all-or-nothing step: the contract becomes approved with its approval time, the unit changes from reserved to sold, the schedule lines are stored, and one contract-approval audit row is written (who approved, which contract, the unit price, and the approved final price, down payment and installment count). If any part fails, none of it MUST remain.
 - **FR-024**: After approval, the unit MUST stay sold, even after the reservation's 72 hours pass.
 
 **Viewing**
 
 - **FR-025**: An accountant and a manager MUST see all contracts of their own company. A sales rep MUST see only contracts made from their own reservations. A manager MUST NOT create, edit or approve.
 - **FR-026**: The contracts list MUST show for each contract: the unit's project name and number, the client's name, the sales rep's name, the final price, draft or approved (and "reservation expired" for a draft whose reservation expired), and the remaining amount.
-- **FR-027**: The contracts list MUST be paged by the server (20 per page by default, at most 50), MAY be filtered by draft or approved, and MUST have a stable order: drafts first, then approved contracts with the most recent approval first, with a fixed tie-breaker so paging never repeats or skips a contract. Paging and filter parameters MUST be validated; invalid values MUST be refused (400).
+- **FR-027**: The contracts list MUST be paged by the server (20 per page by default, at most 50) and MUST have no status filter. It MUST have a stable order: drafts first, then approved contracts with the most recent approval first, with a fixed tie-breaker so paging never repeats or skips a contract. Paging parameters MUST be validated; invalid values MUST be refused (400).
 - **FR-028**: The contract page MUST show the unit, the client, the sales rep, the reservation's expiry date and time, the unit price, the final price, the down payment, the installment count, the approval date (when approved), the remaining amount, and the schedule.
 - **FR-029**: For an approved contract, each schedule line MUST show its number (the down payment marked as such), due date, amount, paid amount and status. The status MUST be computed when shown, never stored:
   - "paid" if the paid amount equals the amount;
@@ -228,7 +237,7 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
 - **Installment / schedule line** (exists since phase 1): one line of an approved contract: its number (0 for the down payment, 1 and up for monthly installments), due date (a calendar date), amount and paid amount. Created only on approval. Its status is computed when shown, never stored. Paid amounts change only through payments (phase 6).
 - **Reservation** (phase 4): the source of a contract. Must be active to create, edit or approve a contract from it.
 - **Unit** (phase 3): goes from reserved to sold on approval, and never back.
-- **Audit log entry** (phase 1): one entry per approval, recording who approved, the contract and the approved values.
+- **Audit log entry** (phase 1): one entry per approval, recording who approved, the contract, the unit price and the approved values, so a final price above or below the unit price is visible.
 
 ## Success Criteria *(mandatory)*
 
@@ -246,18 +255,18 @@ An accountant or a manager sees all contracts of their company; a sales rep sees
 
 ## Assumptions
 
-- **Installment count limit**: 1 to 120 monthly installments (10 years). The brief sets only "at least 1". This is the clarify focus for this phase in `docs/phases.md`, so `/speckit-clarify` should confirm it. The "at least 1 riyal per installment" rule (FR-009) also limits the count for small amounts.
-- **Final price above the unit price**: allowed, up to the same upper limit as a unit price (1,000,000,000 riyals). The brief sets only a minimum (maximum discount 5%).
+- **Installment count limit** (confirmed in Clarifications): 1 to 120 monthly installments (10 years). The brief sets only a minimum of 1. The maximum of 120 is a safety bound against huge inputs (for example a request with a million installments), and it is one constant in code if it needs to change. The "at least 1 riyal per installment" rule (FR-009) also limits the count for small amounts.
+- **Final price above the unit price** (confirmed in Clarifications): allowed, up to the global limit of 1,000,000,000 riyals. The brief sets only a floor (at most 5% discount). Control: only an accountant can approve, after comparing the values, and the approval is audited. The contract-approval audit entry includes both the unit price and the final price, so any difference is visible.
 - **Whole-riyal installments**: monthly installments are whole riyals; the last one takes the whole remainder, including any halalas. The down payment may have halalas. This keeps installments simple to pay and the total exact.
 - **Start date and dates**: the start date is the approval date in Saudi time. Installment *i* is due *i* months after the start date, counted from the start date each time; a day that does not exist becomes the last day of that month. So a 31 January start gives 28/29 February, 31 March, 30 April.
-- **Preview dates**: a draft has no start date yet, so the preview estimates the dates as if the contract were approved today, and says so. The real dates are fixed on approval.
+- **Preview dates** (confirmed in Clarifications): a draft has no start date yet, so the preview and the draft page call the same schedule function used at approval, with today (Asia/Riyadh) as the start date, under the label "التواريخ تقديرية، وتُثبَّت عند الاعتماد". After approval, the stored dates are shown with no label.
 - **Status priority**: paid, then overdue, then partial, then unpaid. A partly paid line past its due date is "overdue", and its paid amount is still shown. A line due today is not overdue.
 - **Draft viewers**: the manager sees all contracts of the company read-only, per the brief ("sees everything inside his company") and the phase 2 navigation map. "Any allowed user" covers the manager, the accountant and the owning sales rep.
 - **Accountant view of the reservation**: the contract page shows the unit, client, sales rep and reservation expiry, as promised in the phase 4 clarifications.
 - **Stale drafts**: a draft whose reservation expired stays as history, marked "reservation expired", and cannot be edited or approved. The unit is released by the phase 4 rule and may be reserved again, with a new contract.
 - **Change check on approval**: the values compared are the only editable ones: final price, down payment and installment count.
 - **Draft remaining amount**: a draft has no schedule and nothing paid, so its remaining amount is the final price.
-- **List order**: drafts first, then approved contracts by most recent approval, with a fixed tie-breaker. Contracts have no creation time, and adding one is not needed by any brief rule.
+- **List order and filter** (confirmed in Clarifications): no status filter. Drafts first, then approved contracts by most recent approval, with a fixed tie-breaker; drafts whose reservation expired are marked in the list. Contracts have no creation time, and adding one is not needed by any brief rule.
 - **No audit entry for draft create or edit**: the brief's audit list includes contract approvals, not drafts. Unit price changes are audited by phase 3; a contract's final price is not a unit price change.
 - **Where drafts start**: from the reservations page (phase 4), on the rep's own active reservations without a contract.
 - **No delete or cancel**: contract cancellation is out of scope (brief). A draft cannot be deleted either; it simply stops being usable when its reservation expires.
