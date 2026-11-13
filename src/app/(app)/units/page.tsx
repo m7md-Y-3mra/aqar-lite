@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
+import { ReserveUnitDialog } from "@/features/reservations/client/reserve-unit-dialog";
 import { UnitsPage } from "@/features/units/client/units-page";
 import { listUnits } from "@/features/units/server";
 import { unitKeys } from "@/features/units/units.keys";
@@ -28,7 +29,12 @@ export default async function UnitsRoute({ searchParams }: UnitsRouteProps) {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <UnitsPage role={user.role} />
+      <UnitsPage
+        role={user.role}
+        reserveDialog={
+          user.role === "SALES" ? <ReserveUnitDialog unitsQueryKey={unitKeys.all} /> : null
+        }
+      />
     </HydrationBoundary>
   );
 }
