@@ -9,6 +9,7 @@ export type ReservationListQuery = z.infer<typeof reservationListQuerySchema>;
 export type ReservationDto = {
   id: string;
   expiresAt: string;
+  contractId: string | null;
   unit: { id: string; projectName: string; number: string };
   client: { id: string; name: string };
   salesRep: { id: string; name: string };

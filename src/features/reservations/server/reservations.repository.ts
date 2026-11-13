@@ -7,6 +7,7 @@ import { RESERVATION_HOURS } from "../domain/reservation-window";
 const reservationSelect = {
   id: true,
   expiresAt: true,
+  contract: { select: { id: true } },
   unit: { select: { id: true, projectName: true, number: true } },
   client: { select: { id: true, name: true } },
   salesRep: { select: { id: true, name: true } },

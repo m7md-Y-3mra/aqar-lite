@@ -32,6 +32,7 @@ function toReservationDto(
   return {
     id: row.id,
     expiresAt: row.expiresAt.toISOString(),
+    contractId: row.contract?.id ?? null,
     unit: row.unit,
     client: row.client,
     salesRep: row.salesRep,
