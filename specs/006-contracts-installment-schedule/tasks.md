@@ -354,7 +354,7 @@ Check these against the rebased code in T001, and update the task text if a name
     - R9 triggers.
   - **Security**: tenant scope in every contracts query; the approval race.
   - **Not done**: delete/cancel, status filter, a DB check that the lines sum to the final price.
-- [ ] T025 Final check:
+- [x] T025 Final check:
   - `npm run lint && npm run typecheck && npm run test && npm run test:integration` all green;
   - walk quickstart §2–§7;
   - run `/security-review`;
