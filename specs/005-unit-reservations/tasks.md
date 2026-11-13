@@ -327,7 +327,7 @@ Check these against the merged code in T001, and update the task text if a name 
   - **Technical decisions**: R1 (conditional update; 0 rows → re-read → 404/409), R2 (two-statement release; READ COMMITTED; lock order; no nested transactions), R4 (one DB clock), R7 (page-level slot composition, URL-driven dialog).
   - **Not done**: manual cancel; per-rep or per-client cap; client search in the picker (first 50 by name); an exclusion constraint as a second DB guard against overlapping reservations (`btree_gist`, `reserved_at` + `expires_at` range per unit; research R3).
   - **Security**: R2 under "duplicated money operations / double reservation".
-- [ ] T033 Run quickstart §2–§7 by hand at 375 px and 1280 px, as sales1, sales2, manager and accountant. Fix what fails.
+- [x] T033 Run quickstart §2–§7 by hand at 375 px and 1280 px, as sales1, sales2, manager and accountant. Fix what fails.
 - [x] T034 Run `npm run lint && npm run typecheck && npm run test` and `npm run test:integration`. Run the concurrency block 3 times in a row (`npx vitest run --config vitest.integration.config.ts -t concurrency`) to show it is stable. Then run `/security-review` and fix every open issue.
 - [x] T035 Check that `CLAUDE.md` is still only `@AGENTS.md` (no technologies block), and that no file in `src/features/units` or `src/features/clients` imports from `src/features/reservations`. Commit `docs: phase 4 README notes`.
 
