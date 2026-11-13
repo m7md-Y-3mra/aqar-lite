@@ -2,8 +2,12 @@ import "server-only";
 
 import { handleRoute, readJson } from "@/server/http/route-handler";
 import { toQueryInput } from "@/shared/lib/search-params";
-import { reserveInputSchema, reserveOptionsQuerySchema } from "../reservations.schemas";
-import { getReserveOptions, reserveUnit } from "./reservations.service";
+import {
+  reservationListQuerySchema,
+  reserveInputSchema,
+  reserveOptionsQuerySchema,
+} from "../reservations.schemas";
+import { getReserveOptions, listActiveReservations, reserveUnit } from "./reservations.service";
 
 export const reserveHandler = handleRoute({
   auth: "user",
@@ -18,5 +22,13 @@ export const reserveOptionsHandler = handleRoute({
   handler: async (req, ctx, user) => {
     const query = reserveOptionsQuerySchema.parse(toQueryInput(new URL(req.url).searchParams));
     return { data: await getReserveOptions(user, query.unitId) };
+  },
+});
+
+export const listReservationsHandler = handleRoute({
+  auth: "user",
+  handler: async (req, ctx, user) => {
+    const query = reservationListQuerySchema.parse(toQueryInput(new URL(req.url).searchParams));
+    return { data: await listActiveReservations(user, query) };
   },
 });

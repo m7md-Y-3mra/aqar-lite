@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { POST as reserveHandler } from "@/app/api/reservations/route";
+import {
+  GET as listReservationsHandler,
+  POST as reserveHandler,
+} from "@/app/api/reservations/route";
 import { GET as reserveOptionsHandler } from "@/app/api/reservations/options/route";
 import { SESSION_COOKIE } from "@/server/auth/session-token";
 import { getDb } from "@/server/db";
-import { makeClient, makeSession, makeUnit } from "../../../support/db-fixtures";
+import { makeClient, makeReservation, makeSession, makeUnit } from "../../../support/db-fixtures";
 import { apiRequest, readJson } from "../../../support/http";
 import { makeTwoCompanies } from "../../../support/session-users";
 
@@ -128,8 +131,10 @@ describe("reservations routes", () => {
   });
 
   it("route modules export no DELETE, PATCH or PUT", async () => {
-    // GET /api/reservations belongs to T025, outside this backend part's T017 scope.
-    expect(Object.keys(await import("@/app/api/reservations/route")).sort()).toEqual(["POST"]);
+    expect(Object.keys(await import("@/app/api/reservations/route")).sort()).toEqual([
+      "GET",
+      "POST",
+    ]);
     expect(Object.keys(await import("@/app/api/reservations/options/route")).sort()).toEqual([
       "GET",
     ]);
@@ -150,4 +155,66 @@ describe("reservations routes", () => {
     expect(await readJson(response)).toMatchObject({ error: { code: "FORBIDDEN" } });
     expect(await unitState(unit.id)).toEqual(before);
   });
+});
+
+describe("list reservations routes", () => {
+  it("GET as accountant → 403", async () => {
+    const response = await listReservationsHandler(
+      apiRequest("/api/reservations", {
+        method: "GET",
+        cookie: await sessionCookie(companies.a.accountant.userId),
+      }),
+      undefined,
+    );
+    expect(response.status).toBe(403);
+    expect(await readJson(response)).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  it("GET /api/reservations?companyId=<B> as manager of A returns only A's rows", async () => {
+    const rows = [];
+    for (const company of [companies.a, companies.b]) {
+      const unit = await makeUnit(company.companyId, { status: "RESERVED" });
+      const client = await makeClient(company.companyId, company.sales1.userId);
+      rows.push(
+        await makeReservation({
+          companyId: company.companyId,
+          unitId: unit.id,
+          clientId: client.id,
+          salesRepId: company.sales1.userId,
+        }),
+      );
+    }
+    const response = await listReservationsHandler(
+      apiRequest(`/api/reservations?companyId=${companies.b.companyId}`, {
+        method: "GET",
+        cookie: await sessionCookie(companies.a.manager.userId),
+      }),
+      undefined,
+    );
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      data: {
+        items: [{ id: rows[0]!.id }],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        asOf: expect.any(String),
+      },
+    });
+  });
+
+  it.each(["page=0", "pageSize=51", "page=1.5"])(
+    "GET invalid pagination %s → 400",
+    async (query) => {
+      const response = await listReservationsHandler(
+        apiRequest(`/api/reservations?${query}`, {
+          method: "GET",
+          cookie,
+        }),
+        undefined,
+      );
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toMatchObject({ error: { code: "VALIDATION_ERROR" } });
+    },
+  );
 });

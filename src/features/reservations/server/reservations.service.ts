@@ -10,8 +10,21 @@ import {
 import type { SessionUser } from "@/server/auth/session.service";
 import { withTransaction } from "@/server/db";
 import { AppError } from "@/server/http/app-error";
-import type { ReservationDto, ReserveInput, ReserveOptionsDto } from "../reservations.types";
-import { findReservationById, insertReservation } from "./reservations.repository";
+import { toSkip } from "@/shared/lib/pagination";
+import type {
+  ReservationDto,
+  ReservationListQuery,
+  ReservationPage,
+  ReserveInput,
+  ReserveOptionsDto,
+} from "../reservations.types";
+import {
+  countActiveReservations,
+  dbNow,
+  findActiveReservations,
+  findReservationById,
+  insertReservation,
+} from "./reservations.repository";
 
 function toReservationDto(
   row: NonNullable<Awaited<ReturnType<typeof findReservationById>>>,
@@ -65,4 +78,32 @@ export async function getReserveOptions(
     },
     clients: clients.items.map(({ id, name }) => ({ id, name })),
   };
+}
+
+export async function listActiveReservations(
+  user: SessionUser,
+  query: ReservationListQuery,
+): Promise<ReservationPage> {
+  if (user.role === "ACCOUNTANT") throw new AppError("FORBIDDEN");
+
+  return withTransaction(async (tx) => {
+    await releaseExpired(user.companyId, tx);
+    const now = await dbNow(tx);
+    const salesRepId = user.role === "SALES" ? user.userId : undefined;
+    const filter = { salesRepId, now };
+    const rows = await findActiveReservations(
+      user.companyId,
+      filter,
+      { skip: toSkip(query.page, query.pageSize), take: query.pageSize },
+      tx,
+    );
+    const total = await countActiveReservations(user.companyId, filter, tx);
+    return {
+      items: rows.map(toReservationDto),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      asOf: now.toISOString(),
+    };
+  });
 }

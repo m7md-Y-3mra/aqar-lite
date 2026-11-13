@@ -34,3 +34,38 @@ export function findReservationById(companyId: string, id: string, tx: Tx) {
     select: reservationSelect,
   });
 }
+
+type ActiveFilter = { salesRepId?: string; now: Date };
+
+function activeWhere(companyId: string, { salesRepId, now }: ActiveFilter) {
+  return {
+    companyId,
+    salesRepId,
+    expiresAt: { gt: now },
+    OR: [{ contract: { is: null } }, { contract: { is: { approvedAt: null } } }],
+  } satisfies Prisma.ReservationWhereInput;
+}
+
+export function findActiveReservations(
+  companyId: string,
+  filter: ActiveFilter,
+  pagination: { skip: number; take: number },
+  tx: Tx,
+) {
+  return tx.reservation.findMany({
+    where: activeWhere(companyId, filter),
+    orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+    skip: pagination.skip,
+    take: pagination.take,
+    select: reservationSelect,
+  });
+}
+
+export function countActiveReservations(companyId: string, filter: ActiveFilter, tx: Tx) {
+  return tx.reservation.count({ where: activeWhere(companyId, filter) });
+}
+
+export async function dbNow(tx: Tx): Promise<Date> {
+  const [row] = await tx.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+  return row!.now;
+}
