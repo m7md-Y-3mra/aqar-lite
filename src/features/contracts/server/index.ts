@@ -1,7 +1,10 @@
 import "server-only";
 
-export { getContract, getContractOptions, listContracts } from "./contracts.service";
+export { approveContract, createContract, updateContract, getContract, getContractOptions, listContracts } from "./contracts.service";
 export {
+  createContractHandler,
+  updateContractHandler,
+  approveContractHandler,
   getContractHandler,
   listContractsHandler,
   contractOptionsHandler,
