@@ -27,7 +27,7 @@ updated `tests/unit/shared/lib/navigation.test.ts` (see the rule → test map in
 
 ## 3. Audit log by hand (FR-009 – FR-014)
 
-Start the app on the isolated DB (`DATABASE_URL=…5434/aqar npm run db:migrate && npm run db:seed && npm run dev`,
+Start the app on the isolated DB (`DATABASE_URL=…5434/aqar npx prisma migrate deploy && npm run db:seed && npm run dev`,
 with `APP_ORIGIN` from `.env.example`), or use the clean-clone stack from §5.
 
 1. Log in with a wrong password for `sales1@ufuq.test`. Failed logins with an unknown email are never listed, so
