@@ -19,7 +19,7 @@ Payments newest first (`createdAt desc, id desc`). A draft returns `approved: fa
 
 | Case | Status | Code |
 |---|---|---|
-| `id` not a uuid | 400 | `VALIDATION_ERROR` |
+| `id` not a uuid | 404 | `NOT_FOUND` (same as phase 5 routes) |
 | SALES | 403 | `FORBIDDEN` |
 | other company / missing | 404 | `NOT_FOUND` |
 
@@ -33,7 +33,8 @@ Body: `{ "amount": 500000 }` (integer halalas, 1 … 100,000,000,000). Other fie
 
 | Case | Status | Code | Message |
 |---|---|---|---|
-| bad amount / missing or bad key / bad id | 400 | `VALIDATION_ERROR` | `fieldErrors.amount` or `fieldErrors.idempotencyKey` |
+| bad amount / missing or bad key | 400 | `VALIDATION_ERROR` | `fieldErrors.amount` or `fieldErrors.idempotencyKey` |
+| bad id | 404 | `NOT_FOUND` | static |
 | MANAGER or SALES | 403 | `FORBIDDEN` | static |
 | other company / missing | 404 | `NOT_FOUND` | static |
 | draft contract | 409 | `CONTRACT_NOT_APPROVED` | static |
