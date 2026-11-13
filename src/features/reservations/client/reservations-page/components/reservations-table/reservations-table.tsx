@@ -1,3 +1,6 @@
+import Link from "next/link";
+
+import { buttonVariants } from "@/shared/components/ui/button";
 import {
   Table,
   TableBody,
@@ -9,7 +12,13 @@ import {
 import { formatRiyadhDateTime, formatTimeLeft } from "@/shared/lib/dates";
 import type { ReservationsTableProps } from "./types";
 
-export function ReservationsTable({ reservations, asOf, showRep, dimmed }: ReservationsTableProps) {
+export function ReservationsTable({
+  reservations,
+  asOf,
+  showRep,
+  showContractLink,
+  dimmed,
+}: ReservationsTableProps) {
   return (
     <div className="min-w-0 overflow-x-auto">
       <Table
@@ -24,6 +33,7 @@ export function ReservationsTable({ reservations, asOf, showRep, dimmed }: Reser
             {showRep && <TableHead>مندوب المبيعات</TableHead>}
             <TableHead>ينتهي في</TableHead>
             <TableHead>المتبقي</TableHead>
+            {showContractLink && <TableHead>العقد</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -38,6 +48,20 @@ export function ReservationsTable({ reservations, asOf, showRep, dimmed }: Reser
                 <span dir="ltr">{formatRiyadhDateTime(reservation.expiresAt)}</span>
               </TableCell>
               <TableCell>{formatTimeLeft(reservation.expiresAt, asOf)}</TableCell>
+              {showContractLink && (
+                <TableCell>
+                  <Link
+                    href={
+                      reservation.contractId === null
+                        ? `/contracts/new?reservationId=${reservation.id}`
+                        : `/contracts/${reservation.contractId}`
+                    }
+                    className={buttonVariants({ variant: "link" })}
+                  >
+                    {reservation.contractId === null ? "إنشاء عقد" : "عرض العقد"}
+                  </Link>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

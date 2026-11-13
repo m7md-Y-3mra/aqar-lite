@@ -138,6 +138,41 @@ apply all migrations to it before running, and refuse any database whose name do
   `<UnitsPage reserveDialog={…} />`. The units feature never imports the reservations feature. The dialog
   opens from `?reserve=<unitId>` and closes by removing it, so a reload reopens it on the same unit.
 
+- **One schedule function (phase 5).** `features/contracts/domain/schedule.ts › buildSchedule` is pure and
+  works on integer halalas and `YYYY-MM-DD` strings. The down payment is line 0, due on the start date, and
+  is left out when it is 0. The rest is split into whole riyals; the last line takes the remainder, halalas
+  included, so the lines always add up to the final price exactly. Line `i` is due `addMonths(start, i)`
+  in Asia/Riyadh, always counted from the start, never from the previous line: a 31 January start gives
+  28/29 February, 31 March, 30 April. The form preview, the draft page and approval all call this one
+  function, so the preview cannot drift from the stored schedule. Rejected: dividing in decimal riyals
+  (loses halalas), and counting from the previous due date (31 Jan → 28 Feb → 28 Mar is wrong).
+- **Approval locks the contract, then the unit, then reads the clock (phase 5).** The agreed order was:
+  lock the contract row, check the reservation is active, compare the values, set `approvedAt`, change the
+  unit `RESERVED → SOLD` with a conditional update, insert the installments, write the audit row, all in
+  one transaction. That alone has a race: an approval that starts just before the reservation expires
+  checks expiry against its own start time; meanwhile a units-list read frees the unit and another rep
+  reserves it; the approval's `WHERE status = 'RESERVED'` still matches and sells the unit under the other
+  rep's reservation. The fix: right after the contract lock, approval also takes `SELECT … FOR UPDATE` on
+  the unit row, then reads `clock_timestamp()` and requires the reservation to expire after that moment.
+  While approval holds the unit lock and its reservation is still active, no release or new reservation
+  can have touched that unit. The conditional `RESERVED → SOLD` update stays as a second guard. Lock order
+  is always contract, then unit; no other path locks a unit and then a contract, and approval never calls
+  `releaseExpired`, so there is no deadlock. `approvedAt`, the start date and the audit time all come from
+  that one clock read. Rejected: SERIALIZABLE with retries (a retry loop for one path), and an `EXISTS …
+  clock_timestamp()` inside the unit update (relies on subtle re-check behaviour).
+- **Approval is all or nothing, and proven so.** A test adds a temporary database trigger that makes the
+  approval's audit insert (its last write) fail, then checks the contract is still a draft, the unit is
+  still reserved, and no installments or audit row exist. No mocks: it is a real database failure.
+- **Calendar dates stay strings.** Due dates are `YYYY-MM-DD` in the domain and are stored as UTC midnight of
+  that day in a `date` column. A `Date` built at Riyadh midnight is 21:00 UTC the day before, which Prisma
+  would store as the previous day. "Today" is the Riyadh date of the database clock, sent to the browser,
+  so the preview and the statuses never depend on the device's clock or time zone.
+- **Approved contracts are frozen in the database.** A trigger refuses any `UPDATE` or `DELETE` of a contract
+  row whose `approved_at` is set, and another lets an installment change only its `paid_amount` (for
+  payments) and never be deleted. A check caps the final price at 1,000,000,000 riyals, like the unit price.
+  The service also edits drafts with `UPDATE … WHERE approved_at IS NULL`, so an edit that races an approval
+  gets 409.
+
 ## Assumptions
 
 - Area is in whole m². Unit types are apartment, villa, townhouse and duplex.
@@ -195,6 +230,29 @@ apply all migrations to it before running, and refuse any database whose name do
   sees the whole company with a rep column, and the accountant has no reservations view (the page redirects home, the API
   returns 403, and there is no nav item).
 
+### Phase 5: contracts and installment schedule
+
+- A sales rep creates one contract per reservation, only from their own active reservation, and edits it
+  only while it is a draft and the reservation is still active. Only an accountant approves. Managers and
+  accountants see every contract of the company; a rep sees only their own. There is no delete or cancel.
+- Monthly installments: 1 to 120. The brief sets only a minimum of 1; 120 is a safety bound against huge
+  inputs (for example a request with a million installments) and is one constant in code.
+- The final price is at least 95% of the unit price, rounded up to the halala. It may be above the unit
+  price, up to 1,000,000,000 riyals: the brief only sets a floor. The control is that only an accountant
+  approves, after the value check, and the approval audit row records both the unit price and the final
+  price.
+- Every installment is at least 1 riyal. Installments are whole riyals; the last one takes the remainder.
+  The down payment may have halalas and is less than the final price.
+- Before approval the schedule is a preview with dates as if approved today, labelled
+  "التواريخ تقديرية، وتُثبَّت عند الاعتماد". On approval the start date is the approval date in Saudi time.
+- Installment status is computed when shown: paid, then overdue (due date before today in Saudi time, even
+  if partly paid), then partial, then unpaid. A line due today is not overdue.
+- A draft whose reservation expired stays as history, marked "انتهى الحجز", and cannot be edited or
+  approved. The unit is freed by the phase 4 rule and can be reserved again with a new contract.
+- Approval refuses (409) when the reservation expired, when the contract was already approved, or when the
+  final price, down payment or installment count differ from what the accountant saw.
+- The contracts list has no filter: drafts first, then approved contracts by newest approval.
+
 ## Security
 
 Phase 0 controls: settings validated at startup; secrets only in environment variables (`.env.example` has
@@ -225,11 +283,21 @@ Phase 4 controls: a double reservation is impossible because the unit status cha
 conditional `UPDATE`, and the expiry release locks rows first (see Technical decisions). The owner, company,
 status and expiry of a reservation come from the session and the database, never from the request body.
 
+Phase 5 controls: every contracts query filters by the session company, and for a sales rep also by the
+reservation's rep, so another company's or another rep's contract is 404. The approval race above is
+closed with a unit lock and the current database clock. Approved contracts and their schedules cannot be
+changed even with direct SQL (triggers). The request body never sets the company, rep, status, approval
+date or schedule; only the three terms (and the reservation on create) are read.
+
 The "3 biggest risks" section is written in the final phase.
 
 ## Not done
 
-Units, clients and reservations are implemented. Contract, payment and audit-log screens remain for later phases.
+Units, clients, reservations and contracts are implemented. Payment and audit-log screens remain for later phases.
+
+- Contracts: no delete or cancel (out of scope), no status filter on the list, and no database check that
+  the installments add up to the final price (one writer, approval, builds them with a tested function; a
+  deferred constraint trigger could add it).
 
 - Reservations: no manual cancel, no cap per rep or per client, and no search in the client picker (it shows the
   first 50 clients by name).

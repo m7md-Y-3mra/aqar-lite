@@ -59,6 +59,7 @@ describe("reserve", () => {
     expect(dto).toEqual({
       id: expect.any(String),
       expiresAt: expect.any(String),
+      contractId: null,
       unit: { id: unit.id, projectName: unit.projectName, number: unit.number },
       client: { id: client.id, name: client.name },
       salesRep: { id: companies.a.sales1.userId, name: companies.a.sales1.name },
@@ -360,6 +361,7 @@ describe("list", () => {
       {
         id: row.id,
         expiresAt: row.expiresAt.toISOString(),
+        contractId: null,
         unit: { id: row.unit.id, projectName: row.unit.projectName, number: row.unit.number },
         client: { id: row.client.id, name: row.client.name },
         salesRep: { id: companies.a.sales1.userId, name: companies.a.sales1.name },
@@ -393,6 +395,22 @@ describe("list", () => {
     const page = await listActiveReservations(companies.a.sales1, listQuery);
     expect(page.items.map(({ id }) => id)).toEqual([row.id]);
     expect(page.total).toBe(1);
+  });
+
+  it("contractId is set for a reservation with a draft", async () => {
+    const row = await listFixture();
+    const contract = await makeContract(companies.a.companyId, row.id);
+    const page = await listActiveReservations(companies.a.sales1, listQuery);
+    expect(page.items).toEqual([
+      {
+        id: row.id,
+        expiresAt: row.expiresAt.toISOString(),
+        contractId: contract.id,
+        unit: { id: row.unit.id, projectName: row.unit.projectName, number: row.unit.number },
+        client: { id: row.client.id, name: row.client.name },
+        salesRep: { id: companies.a.sales1.userId, name: companies.a.sales1.name },
+      },
+    ]);
   });
 
   it("soonest expiry first, id breaks ties, pages never repeat or skip", async () => {

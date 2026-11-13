@@ -132,6 +132,23 @@ export async function reserveUnitIfAvailable(companyId: string, unitId: string, 
   return result.count;
 }
 
+export async function lockUnit(companyId: string, unitId: string, tx: Tx) {
+  const [row] = await tx.$queryRaw<{ status: "AVAILABLE" | "RESERVED" | "SOLD" }[]>`
+    SELECT status FROM units
+    WHERE id = ${unitId}::uuid AND company_id = ${companyId}::uuid
+    FOR UPDATE
+  `;
+  return row?.status ?? null;
+}
+
+export async function markUnitSold(companyId: string, unitId: string, tx: Tx) {
+  const result = await tx.unit.updateMany({
+    where: { id: unitId, companyId, status: "RESERVED" },
+    data: { status: "SOLD" },
+  });
+  return result.count;
+}
+
 export function findUnitStatus(companyId: string, unitId: string, tx: Tx) {
   return tx.unit.findFirst({ where: { id: unitId, companyId }, select: { status: true } });
 }

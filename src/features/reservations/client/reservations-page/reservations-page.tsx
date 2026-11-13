@@ -20,7 +20,7 @@ export function ReservationsPage({ role }: ReservationsPageProps) {
       {!valid ? (
         <ErrorState message="معايير البحث غير صحيحة. حاول مرة أخرى." resetHref="/reservations" />
       ) : result.isPending ? (
-        <TableSkeleton columns={role === "MANAGER" ? 5 : 4} />
+        <TableSkeleton columns={5} />
       ) : result.isError ? (
         <ErrorState
           message="تعذر تحميل الحجوزات. حاول مرة أخرى."
@@ -42,6 +42,7 @@ export function ReservationsPage({ role }: ReservationsPageProps) {
               reservations={result.data.items}
               asOf={result.data.asOf}
               showRep={role === "MANAGER"}
+              showContractLink={role === "SALES"}
               dimmed={result.isFetching && result.isPlaceholderData}
             />
           )}

@@ -11,7 +11,9 @@ const items: NavItem[] = [
 
 describe("navigation", () => {
   it.each(ROLES)("shows Home, units and clients for %s in the configured navigation", (role) => {
-    expect(navItemsFor(role).filter((item) => item.href !== "/reservations")).toEqual([
+    expect(
+      navItemsFor(role).filter((item) => !["/reservations", "/contracts"].includes(item.href)),
+    ).toEqual([
       { href: "/", label: "الرئيسية", roles: ROLES },
       { href: "/units", label: "الوحدات", roles: ROLES },
       { href: "/clients", label: "العملاء", roles: ROLES },
@@ -28,6 +30,13 @@ describe("navigation", () => {
     expect(navItemsFor("MANAGER")).toContainEqual(reservationItem);
     expect(navItemsFor("SALES")).toContainEqual(reservationItem);
     expect(navItemsFor("ACCOUNTANT").some((item) => item.href === "/reservations")).toBe(false);
+  });
+
+  it("contracts item for MANAGER, SALES and ACCOUNTANT", () => {
+    const contractItem = { href: "/contracts", label: "العقود", roles: ROLES };
+    for (const role of ROLES) {
+      expect(navItemsFor(role)).toContainEqual(contractItem);
+    }
   });
 
   it("includes manager-only items for a manager", () => {
