@@ -272,3 +272,56 @@ describe("options", () => {
     expect(await unitState(expiredUnit.id)).toEqual({ status: "AVAILABLE", reservations: 1 });
   });
 });
+
+describe("expiry", () => {
+  it("expired reservation frees the unit and another rep can reserve it", async () => {
+    const input = await ownInput();
+    const first = await reserveUnit(companies.a.sales1, input);
+    await expire(first.id);
+    const page = await listUnits(companies.a.manager, unitListQuerySchema.parse({}));
+    expect(page.items).toContainEqual(
+      expect.objectContaining({
+        id: input.unitId,
+        status: "AVAILABLE",
+        reservedUntil: null,
+      }),
+    );
+    const client2 = await makeClient(companies.a.companyId, companies.a.sales2.userId);
+    const before = await dbNow();
+    const second = await reserveUnit(companies.a.sales2, {
+      unitId: input.unitId,
+      clientId: client2.id,
+    });
+    expect(second.id).not.toBe(first.id);
+    expect(new Date(second.expiresAt).getTime()).toBeGreaterThan(before.getTime());
+    expect(second.salesRep.id).toBe(companies.a.sales2.userId);
+    expect(await unitState(input.unitId)).toEqual({ status: "RESERVED", reservations: 2 });
+  });
+
+  it("the expired reservation row still exists after the unit is re-reserved", async () => {
+    const input = await ownInput();
+    const first = await reserveUnit(companies.a.sales1, input);
+    await expire(first.id);
+    const historical = await getDb().reservation.findUniqueOrThrow({ where: { id: first.id } });
+    const client2 = await makeClient(companies.a.companyId, companies.a.sales2.userId);
+    const second = await reserveUnit(companies.a.sales2, {
+      unitId: input.unitId,
+      clientId: client2.id,
+    });
+    expect(second.id).not.toBe(first.id);
+    expect(await getDb().reservation.findUnique({ where: { id: first.id } })).toEqual(historical);
+    expect(await unitState(input.unitId)).toEqual({ status: "RESERVED", reservations: 2 });
+  });
+
+  it("a SOLD unit with an expired reservation stays SOLD and cannot be reserved", async () => {
+    const input = await ownInput();
+    const first = await reserveUnit(companies.a.sales1, input);
+    await expire(first.id);
+    await getDb().unit.update({ where: { id: input.unitId }, data: { status: "SOLD" } });
+    await expectRefusal(
+      input.unitId,
+      () => reserveUnit(companies.a.sales1, input),
+      "UNIT_NOT_AVAILABLE",
+    );
+  });
+});
