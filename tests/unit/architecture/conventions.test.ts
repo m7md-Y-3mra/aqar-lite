@@ -60,6 +60,14 @@ describe("project conventions", () => {
     expect(bad).toEqual([]);
   });
 
+  it("never uses dangerouslySetInnerHTML", () => {
+    const unsafe = walk(join(ROOT, "src"))
+      .filter((path) => /\.tsx?$/.test(path))
+      .filter((path) => readFileSync(path, "utf8").includes("dangerouslySetInnerHTML"))
+      .map((path) => relative(ROOT, path));
+    expect(unsafe).toEqual([]);
+  });
+
   it('starts every server file with import "server-only"', () => {
     const serverDirs = [
       join(ROOT, "src/server"),
