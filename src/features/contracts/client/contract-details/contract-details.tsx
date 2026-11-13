@@ -18,7 +18,13 @@ import { ApproveContractButton } from "./components/approve-contract-button";
 import type { ContractDetailsProps } from "./types";
 import { useContractDetails } from "./use-contract-details";
 
-export function ContractDetails({ id, role, userId, relatedQueryKeys }: ContractDetailsProps) {
+export function ContractDetails({
+  id,
+  role,
+  userId,
+  relatedQueryKeys,
+  paymentsSlot,
+}: ContractDetailsProps) {
   const detail = useContractDetails(id);
   if (detail.isPending) return <p role="status">جارٍ التحميل…</p>;
   if (detail.isError) {
@@ -122,6 +128,7 @@ export function ContractDetails({ id, role, userId, relatedQueryKeys }: Contract
           statusLabels={installmentStatusLabels}
         />
       </div>
+      {contract.status === "APPROVED" && paymentsSlot}
     </section>
   );
 }

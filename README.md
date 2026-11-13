@@ -1,7 +1,7 @@
 # Aqar Lite
 
 A multi-tenant system to sell real-estate units by installments (Next.js, PostgreSQL, Prisma).
-This README grows with each phase. Through **phase 3**, database setup, authentication, units and clients are implemented. The home page remains a simple Arabic RTL landing page.
+This README grows with each phase. Through **phase 6**, database setup, authentication, units, clients, reservations, contracts and payments are implemented. The home page remains a simple Arabic RTL landing page.
 
 ## Running
 
@@ -172,6 +172,16 @@ apply all migrations to it before running, and refuse any database whose name do
   payments) and never be deleted. A check caps the final price at 1,000,000,000 riyals, like the unit price.
   The service also edits drafts with `UPDATE … WHERE approved_at IS NULL`, so an edit that races an approval
   gets 409.
+- **Payments run one at a time per contract.** Recording a payment locks the contract row (`FOR UPDATE`)
+  first, then checks the `Idempotency-Key`, then the amount, then stores the payment, adds the paid amounts
+  and writes the audit row, all in one transaction. Under READ COMMITTED each statement after the lock sees
+  what the previous payment committed, so two accountants can never pay past the remaining amount and two
+  copies of one request create one payment. Parallel tests prove both. The key check comes before the amount
+  check, so retrying a final payment returns it instead of a false "too much" error. Rejected: SERIALIZABLE
+  with retries (a retry loop), and the unique key index alone (stops duplicates, not overpayment).
+- **Allocation is a pure function** (`features/payments/domain/allocation.ts`): lowest line number first,
+  skips full lines, and the applied amounts always add up to the payment. A new payment returns 201; a replay
+  returns 200 with the same body.
 
 ## Assumptions
 
@@ -253,6 +263,22 @@ apply all migrations to it before running, and refuse any database whose name do
   final price, down payment or installment count differ from what the accountant saw.
 - The contracts list has no filter: drafts first, then approved contracts by newest approval.
 
+### Phase 6: payments
+
+- Only an accountant records a payment, only on an approved contract, for any amount from 0.01 riyal up to
+  the remaining amount. Halalas are allowed because the down payment and the last installment may have them.
+- The payment date is always the moment the server records it; there is no field for a past or future date.
+  A payment has only an amount: no method, reference or note.
+- "Oldest" means the lowest line number (the down payment first). Being overdue does not change the order.
+- Same `Idempotency-Key`, same contract, same amount: the original payment comes back. Same key with a
+  different amount: 409 with the amount already saved (decided with the reviewer; the plan note first said
+  to return the original). The form keeps its key across retries and double clicks and makes a new one only
+  after a success or after that 409. Keys are per contract.
+- A sales rep does not see the payments list, even on their own contract (`GET` returns 403); they see paid
+  amounts and statuses on the schedule only. Accountants and managers see the list.
+- Who recorded each payment and how it was split across installments are kept in the `PAYMENT_RECORDED`
+  audit row (amount, `[{ seq, applied }]`, remaining after), not shown on the contract page.
+
 ## Security
 
 Phase 0 controls: settings validated at startup; secrets only in environment variables (`.env.example` has
@@ -289,11 +315,20 @@ closed with a unit lock and the current database clock. Approved contracts and t
 changed even with direct SQL (triggers). The request body never sets the company, rep, status, approval
 date or schedule; only the three terms (and the reservation on create) are read.
 
+Phase 6 controls: the amount is the only field read from the body; the contract comes from the path and
+the key from the header. Every payments query reaches the company through the contract, so another
+company's contract is 404 even with a known key. Payments and audit rows cannot be changed or deleted
+(phase 1 triggers), and the payments API has no update or delete method (a test checks the route exports).
+
 The "3 biggest risks" section is written in the final phase.
 
 ## Not done
 
-Units, clients, reservations and contracts are implemented. Payment and audit-log screens remain for later phases.
+Units, clients, reservations, contracts and payments are implemented. The audit-log screen remains for the last phase.
+
+- Payments: no refund or correction (a payment cannot change; a correction would be a new, audited
+  adjustment record), and the payments list on a contract is not paged (it is entered by hand, so it stays
+  short).
 
 - Contracts: no delete or cancel (out of scope), no status filter on the list, and no database check that
   the installments add up to the final price (one writer, approval, builds them with a tested function; a

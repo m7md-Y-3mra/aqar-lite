@@ -172,3 +172,36 @@ export async function insertInstallments(
     })),
   });
 }
+
+// Used by payments (through ./index.ts). Installments have no company_id column, so they are scoped by their contract.
+
+export function findContractTotals(companyId: string, id: string, tx?: Tx) {
+  return (tx ?? getDb()).contract.findFirst({
+    where: { id, companyId },
+    select: { id: true, finalPrice: true, approvedAt: true },
+  });
+}
+
+export function findOpenInstallments(companyId: string, contractId: string, tx: Tx) {
+  return tx.$queryRaw<{ id: string; seq: number; amount: bigint; paidAmount: bigint }[]>`
+    SELECT i.id, i.seq, i.amount, i.paid_amount AS "paidAmount"
+    FROM installments i
+    JOIN contracts c ON c.id = i.contract_id
+    WHERE i.contract_id = ${contractId}::uuid AND c.company_id = ${companyId}::uuid
+      AND i.paid_amount < i.amount
+    ORDER BY i.seq
+  `;
+}
+
+export async function addInstallmentPaid(
+  companyId: string,
+  installmentId: string,
+  halalas: number,
+  tx: Tx,
+) {
+  const result = await tx.installment.updateMany({
+    where: { id: installmentId, contract: { companyId } },
+    data: { paidAmount: { increment: BigInt(halalas) } },
+  });
+  return result.count;
+}

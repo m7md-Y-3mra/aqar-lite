@@ -10,12 +10,16 @@ import { ERROR_MESSAGES } from "@/shared/lib/error-messages";
 import { AppError } from "./app-error";
 import { ERROR_CODES, type ErrorCode } from "./error-codes";
 
-function errorResponse(code: ErrorCode, fieldErrors?: Record<string, string[]>) {
+function errorResponse(
+  code: ErrorCode,
+  fieldErrors?: Record<string, string[]>,
+  userMessage?: string,
+) {
   return Response.json(
     {
       error: {
         code,
-        message: ERROR_MESSAGES[code],
+        message: userMessage ?? ERROR_MESSAGES[code],
         ...(code === "VALIDATION_ERROR" && fieldErrors ? { fieldErrors } : {}),
       },
     },
@@ -75,7 +79,7 @@ export function handleRoute<Ctx = unknown>(
         : Response.json({ data: result.data }, { status: result.status ?? 200 });
     } catch (err) {
       if (err instanceof AppError) {
-        return errorResponse(err.code, err.fieldErrors);
+        return errorResponse(err.code, err.fieldErrors, err.userMessage);
       }
       if (err instanceof ZodError) {
         return errorResponse("VALIDATION_ERROR", z.flattenError(err).fieldErrors);
