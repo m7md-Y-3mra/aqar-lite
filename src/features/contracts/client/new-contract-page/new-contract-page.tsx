@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { ErrorState } from "@/shared/components/error-state";
 import { formatRiyadhDateTime } from "@/shared/lib/dates";
+import { formatRiyals } from "@/shared/lib/money";
 import { ContractForm } from "../contract-form";
 import type { NewContractPageProps } from "./types";
 import { useNewContractPage } from "./use-new-contract-page";
@@ -24,6 +25,7 @@ export function NewContractPage({ reservationId, relatedQueryKeys }: NewContract
     body = <div className="space-y-6">
       <dl className="grid gap-3 sm:grid-cols-2">
         <div><dt className="text-muted-foreground">الوحدة</dt><dd>{data.unit.projectName} — {data.unit.number}</dd></div>
+        <div><dt className="text-muted-foreground">سعر الوحدة</dt><dd>{formatRiyals(data.unit.price)} ريال</dd></div>
         <div><dt className="text-muted-foreground">العميل</dt><dd>{data.client.name}</dd></div>
         <div><dt className="text-muted-foreground">انتهاء الحجز</dt><dd>{formatRiyadhDateTime(data.reservation.expiresAt)}</dd></div>
       </dl>
