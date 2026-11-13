@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { getDb, type Tx } from "@/server/db";
+import { getDb, withTransaction, type Tx } from "@/server/db";
 import { toSkip } from "@/shared/lib/pagination";
 import type { UnitInput, UnitListQuery } from "../units.types";
 
@@ -16,15 +16,31 @@ function unitWhere(companyId: string, query: UnitListQuery): Prisma.UnitWhereInp
   };
 }
 
+// Lock candidates first: a waiting statement's NOT EXISTS keeps its old snapshot.
+// The second statement sees newly committed reservations under READ COMMITTED.
+// Call before locking any unit row; never call inside another service's transaction.
 export function releaseExpired(companyId: string, tx?: Tx) {
-  const db = tx ?? getDb();
-  return db.$executeRaw`
-    UPDATE units u SET status = 'AVAILABLE'
-    WHERE u.company_id = ${companyId} AND u.status = 'RESERVED'
-      AND NOT EXISTS (
-        SELECT 1 FROM reservations r WHERE r.unit_id = u.id AND r.expires_at > now()
-      )
-  `;
+  const run = async (db: Tx) => {
+    const rows = await db.$queryRaw<{ id: string }[]>`
+      SELECT u.id FROM units u
+      WHERE u.company_id = ${companyId} AND u.status = 'RESERVED'
+        AND NOT EXISTS (
+          SELECT 1 FROM reservations r WHERE r.unit_id = u.id AND r.expires_at > now()
+        )
+      ORDER BY u.id FOR UPDATE
+    `;
+    if (rows.length === 0) return 0;
+    const ids = rows.map((row) => row.id);
+    return db.$executeRaw`
+      UPDATE units u SET status = 'AVAILABLE'
+      WHERE u.id = ANY(${ids}::uuid[]) AND u.company_id = ${companyId}
+        AND u.status = 'RESERVED'
+        AND NOT EXISTS (
+          SELECT 1 FROM reservations r WHERE r.unit_id = u.id AND r.expires_at > now()
+        )
+    `;
+  };
+  return tx ? run(tx) : withTransaction(run);
 }
 
 export function findUnits(companyId: string, query: UnitListQuery, tx?: Tx) {
@@ -106,4 +122,22 @@ export async function updateUnitPriceIfAvailable(
     },
   });
   return result.count;
+}
+
+export async function reserveUnitIfAvailable(companyId: string, unitId: string, tx: Tx) {
+  const result = await tx.unit.updateMany({
+    where: { id: unitId, companyId, status: "AVAILABLE" },
+    data: { status: "RESERVED" },
+  });
+  return result.count;
+}
+
+export function findUnitStatus(companyId: string, unitId: string, tx: Tx) {
+  return tx.unit.findFirst({ where: { id: unitId, companyId }, select: { status: true } });
+}
+
+export async function dbNow(tx?: Tx): Promise<Date> {
+  const db = tx ?? getDb();
+  const [row] = await db.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+  return row!.now;
 }
