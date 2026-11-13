@@ -42,7 +42,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 ## Phase 1: Setup
 
-- [ ] T001 Gate:
+- [x] T001 Gate:
   - confirm phase 4 is merged into `main`, and rebase this branch onto it;
   - run `npm run lint && npm run typecheck && npm run test && npm run test:integration` and confirm all green before any change;
   - check every name in the table above against the code, and fix this file's task text where a name differs;
@@ -54,7 +54,7 @@ Check these against the rebased code in T001, and update the task text if a name
 
 **Purpose**: pure domain, DB guards, error codes, schemas, repository and the detail read model that every story returns.
 
-- [ ] T002 [P] Write the domain unit tests first (they must fail) in three files: `tests/unit/features/contracts/domain/schedule.test.ts`, `tests/unit/features/contracts/domain/pricing.test.ts` and `tests/unit/features/contracts/domain/installment-status.test.ts`.
+- [x] T002 [P] Write the domain unit tests first (they must fail) in three files: `tests/unit/features/contracts/domain/schedule.test.ts`, `tests/unit/features/contracts/domain/pricing.test.ts` and `tests/unit/features/contracts/domain/installment-status.test.ts`.
   - **`schedule`**:
     - "100,000 over 3 → 33,333 / 33,333 / 33,334";
     - "31 January start → 28 Feb, 31 Mar, 30 Apr" (start `2027-01-31`);
@@ -79,7 +79,7 @@ Check these against the rebased code in T001, and update the task text if a name
     - "unpaid when nothing paid and due today (not overdue)";
     - "down payment due on the approval date is overdue the next day";
     - "contractRemaining subtracts all paid amounts".
-- [ ] T003 Implement the pure domain (no DB or framework imports; `date-fns` + `@date-fns/tz` only) so that T002 passes. Three files:
+- [x] T003 Implement the pure domain (no DB or framework imports; `date-fns` + `@date-fns/tz` only) so that T002 passes. Three files:
   - `src/features/contracts/domain/schedule.ts`:
     - `MAX_INSTALLMENTS = 120`;
     - `ScheduleTerms`, `ScheduleLine { seq, dueDate: "YYYY-MM-DD", amount }`;
@@ -87,10 +87,10 @@ Check these against the rebased code in T001, and update the task text if a name
     - `scheduleTotal(lines)`.
   - `src/features/contracts/domain/pricing.ts`: `minFinalPrice(unitPrice) = Math.ceil(unitPrice * 95 / 100)`, exactly as agreed.
   - `src/features/contracts/domain/installment-status.ts`: `installmentStatus({ amount, paidAmount, dueDate }, today)` with the order PAID → OVERDUE (`dueDate < today`) → PARTIAL → UNPAID, and `contractRemaining(finalPrice, lines)`.
-- [ ] T004 [P] Add `toRiyadhDate(instant: Date): string` (`format(new TZDate(instant, "Asia/Riyadh"), "yyyy-MM-dd")`) and `formatRiyadhDate(ymd: string): string` (`yyyy/MM/dd`) to `src/shared/lib/dates.ts`. Add tests to `tests/unit/shared/lib/dates.test.ts`:
+- [x] T004 [P] Add `toRiyadhDate(instant: Date): string` (`format(new TZDate(instant, "Asia/Riyadh"), "yyyy-MM-dd")`) and `formatRiyadhDate(ymd: string): string` (`yyyy/MM/dd`) to `src/shared/lib/dates.ts`. Add tests to `tests/unit/shared/lib/dates.test.ts`:
   - "toRiyadhDate(2027-01-30T22:00Z) is 2027-01-31";
   - "formatRiyadhDate".
-- [ ] T005 [P] Create the migration with `npx prisma migrate dev --create-only --name contracts_guards` and fill `prisma/migrations/<timestamp>_contracts_guards/migration.sql` per research R9:
+- [x] T005 [P] Create the migration with `npx prisma migrate dev --create-only --name contracts_guards` and fill `prisma/migrations/<timestamp>_contracts_guards/migration.sql` per research R9:
   - `contracts_final_price_max_check CHECK (final_price <= 100000000000)`;
   - trigger function and trigger `contracts_approved_immutable` (`BEFORE UPDATE OR DELETE ON contracts`, raise when `OLD.approved_at IS NOT NULL`);
   - trigger `installments_terms_immutable`:
@@ -105,11 +105,11 @@ Check these against the rebased code in T001, and update the task text if a name
   - "UPDATE installments SET amount fails";
   - "UPDATE installments SET paid_amount succeeds";
   - "DELETE installment fails".
-- [ ] T006 [P] Error codes:
+- [x] T006 [P] Error codes:
   - add `CONTRACT_EXISTS`, `CONTRACT_ALREADY_APPROVED`, `CONTRACT_CHANGED` and `RESERVATION_EXPIRED` (all 409) to `src/server/http/error-codes.ts`;
   - add their Arabic messages (research R10, word for word) to `src/shared/lib/error-messages.ts`;
   - update `tests/unit/shared/lib/error-messages.test.ts` if it lists the codes.
-- [ ] T007 Feature contracts:
+- [x] T007 Feature contracts:
   - `src/features/contracts/contracts.schemas.ts`:
     - `contractSchema`: id, reservationId, finalPrice 1…1e11, downPayment 0…1e11, installmentCount 1…`MAX_INSTALLMENTS`, with Arabic messages;
     - `contractTermsRefine`: `downPayment < finalPrice` → `downPayment`; `finalPrice − downPayment >= installmentCount × 100` → `installmentCount`;
@@ -129,12 +129,12 @@ Check these against the rebased code in T001, and update the task text if a name
   - "pageSize 51 → error";
   - "defaults 1 / 20";
   - "unknown status key is stripped".
-- [ ] T008 Units exports for approval (research R12):
+- [x] T008 Units exports for approval (research R12):
   - in `src/features/units/server/units.repository.ts` add:
     - `lockUnit(companyId, unitId, tx)`: `$queryRaw SELECT status FROM units WHERE id = … AND company_id = … FOR UPDATE`, returns the status or null;
     - `markUnitSold(companyId, unitId, tx)`: `updateMany WHERE { id, companyId, status: "RESERVED" } → SOLD`, returns the count;
   - export both from `src/features/units/server/index.ts`.
-- [ ] T009 Contracts repository `src/features/contracts/server/contracts.repository.ts` (`import "server-only"`). Every function takes `companyId` and an optional or required `tx` as in plan.md:
+- [x] T009 Contracts repository `src/features/contracts/server/contracts.repository.ts` (`import "server-only"`). Every function takes `companyId` and an optional or required `tx` as in plan.md:
   - `dbNow`, `dbClock` (`SELECT clock_timestamp()`);
   - `findOwnReservation` (with unit price, client, contract id);
   - `insertContract`;
@@ -151,7 +151,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - "every query filters by companyId" (company B rows never returned or updated);
   - "insertInstallments with company A's id for company B's contract → NOT_FOUND, no rows";
   - "stored due date reads back as the same YYYY-MM-DD".
-- [ ] T010 Detail read model:
+- [x] T010 Detail read model:
   - in `src/features/contracts/server/contracts.service.ts` add `toDetailDto` and `getContract(user, id)`:
     - SALES scoped by `salesRepId`; none → `NOT_FOUND`;
     - `today = toRiyadhDate(await dbNow())`;
