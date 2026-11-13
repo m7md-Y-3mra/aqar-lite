@@ -50,8 +50,8 @@ Check these against the merged code in T001, and update the task text if a name 
 
 **Purpose**: get the code from phases 2 and 3, which this phase builds on.
 
-- [ ] T001 Rebase `claude/unit-reservations-16e517` onto `main` after phases 2 (`003-auth-app-shell`) and 3 (`004-unit-client-management`) are merged. Run `npm ci`, `npm run db:generate`, `docker compose up -d db`, and then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. Then check every name in the table above against the code, and correct this file where one differs.
-- [ ] T002 [P] If `src/shared/components/ui/dialog.tsx` does not exist, add it with the shadcn CLI (`npx shadcn@latest add dialog`). It is built on `radix-ui` (approved in phase 2), so add no new npm package. Commit `feat: add shadcn dialog primitive`.
+- [x] T001 Rebase `claude/unit-reservations-16e517` onto `main` after phases 2 (`003-auth-app-shell`) and 3 (`004-unit-client-management`) are merged. Run `npm ci`, `npm run db:generate`, `docker compose up -d db`, and then `npm run lint && npm run typecheck && npm run test && npm run test:integration`. All must pass before any change. Then check every name in the table above against the code, and correct this file where one differs.
+- [x] T002 [P] If `src/shared/components/ui/dialog.tsx` does not exist, add it with the shadcn CLI (`npx shadcn@latest add dialog`). It is built on `radix-ui` (approved in phase 2), so add no new npm package. Commit `feat: add shadcn dialog primitive`.
 
 ---
 
@@ -61,23 +61,23 @@ Check these against the merged code in T001, and update the task text if a name 
 
 **⚠️ No user story starts before this phase is done.**
 
-- [ ] T003 [P] Add `UNIT_NOT_AVAILABLE: 409` to `ERROR_CODES` in `src/server/http/error-codes.ts`. Add `UNIT_NOT_AVAILABLE: "هذه الوحدة لم تعد متاحة، فقد حُجزت للتو. اختر وحدة أخرى."` to `src/shared/lib/error-messages.ts`. If `tests/unit/shared/lib/error-messages.test.ts` checks that every code has a message, run it.
-- [ ] T004 [P] Create `src/features/reservations/domain/reservation-window.ts` exporting `RESERVATION_HOURS = 72`. Domain code: no DB or framework imports.
-- [ ] T005 [P] Create `src/features/reservations/reservations.schemas.ts`. Every rule is defined once, and inputs use `.pick()` only (never `.omit()`):
+- [x] T003 [P] Add `UNIT_NOT_AVAILABLE: 409` to `ERROR_CODES` in `src/server/http/error-codes.ts`. Add `UNIT_NOT_AVAILABLE: "هذه الوحدة لم تعد متاحة، فقد حُجزت للتو. اختر وحدة أخرى."` to `src/shared/lib/error-messages.ts`. If `tests/unit/shared/lib/error-messages.test.ts` checks that every code has a message, run it.
+- [x] T004 [P] Create `src/features/reservations/domain/reservation-window.ts` exporting `RESERVATION_HOURS = 72`. Domain code: no DB or framework imports.
+- [x] T005 [P] Create `src/features/reservations/reservations.schemas.ts`. Every rule is defined once, and inputs use `.pick()` only (never `.omit()`):
   - `reservationSchema = z.object({ unitId: z.uuid({ error: "اختر وحدة صحيحة" }), clientId: z.uuid({ error: "اختر عميلاً" }) })`;
   - `reserveInputSchema = reservationSchema.pick({ unitId: true, clientId: true })`;
   - `reservationListQuerySchema = z.object({ ...paginationFields })`;
   - `reserveOptionsQuerySchema = reservationSchema.pick({ unitId: true })`.
 
   No `companyId`, `salesRepId`, `status` or `expiresAt` in any schema.
-- [ ] T006 [P] Create `src/features/reservations/reservations.types.ts`:
+- [x] T006 [P] Create `src/features/reservations/reservations.types.ts`:
   - `ReserveInput`, `ReservationListQuery` (`z.infer`);
   - `ReservationDto = { id; expiresAt: string; unit: { id; projectName; number }; client: { id; name }; salesRep: { id; name } }`;
   - `ReservationPage = Page<ReservationDto> & { asOf: string }`;
   - `ReserveOptionsDto = { unit: { id; projectName; number; status }; clients: { id; name }[] }`.
 
   Create `src/features/reservations/reservations.keys.ts`: `reservationKeys.all = ["reservations"]`, `list(query)`, `options(unitId)`.
-- [ ] T007 [P] Write `tests/unit/features/reservations/reservations.schemas.test.ts`:
+- [x] T007 [P] Write `tests/unit/features/reservations/reservations.schemas.test.ts`:
   - "rejects missing / non-UUID unitId and clientId" (both `fieldErrors` keys present);
   - "strips expiresAt, salesRepId, companyId, status";
   - "pageSize 51 → error";
@@ -85,7 +85,7 @@ Check these against the merged code in T001, and update the task text if a name 
   - "options query rejects a non-UUID unitId".
 
   Commit T004–T007 as `feat: add reservation schemas, types and keys`.
-- [ ] T008 Fix `releaseExpired(companyId, tx?)` in `src/features/units/server/units.repository.ts` (research R2). Keep the signature and the returned count.
+- [x] T008 Fix `releaseExpired(companyId, tx?)` in `src/features/units/server/units.repository.ts` (research R2). Keep the signature and the returned count.
   - Body: `const run = (db: Tx) => …`; with `tx`, call `run(tx)`; without it, call `withTransaction(run)`.
   - Inside `run`:
     1. `const rows = await db.$queryRaw<{ id: string }[]>` with `SELECT u.id FROM units u WHERE u.company_id = ${companyId}::uuid AND u.status = 'RESERVED' AND NOT EXISTS (SELECT 1 FROM reservations r WHERE r.unit_id = u.id AND r.expires_at > now()) ORDER BY u.id FOR UPDATE`;
@@ -93,16 +93,16 @@ Check these against the merged code in T001, and update the task text if a name 
     3. `return db.$executeRaw` with `UPDATE units u SET status = 'AVAILABLE' WHERE u.id = ANY(${ids}::uuid[]) AND u.company_id = ${companyId}::uuid AND u.status = 'RESERVED' AND NOT EXISTS (…same…)`.
   - Use `::uuid` only where the existing phase 3 statement needed it. Phase 3's `units.repository.test.ts` must pass **unchanged**.
   - Add a comment over the function explaining why there are two statements: the snapshot of the `NOT EXISTS` (R2). Also state the rule: call it before locking any unit row, never inside another service's transaction.
-- [ ] T009 Add to `src/features/units/server/units.repository.ts` (all take `companyId` first, with `tx`):
+- [x] T009 Add to `src/features/units/server/units.repository.ts` (all take `companyId` first, with `tx`):
   - `reserveUnitIfAvailable(companyId, unitId, tx)`: `updateMany({ where: { id: unitId, companyId, status: "AVAILABLE" }, data: { status: "RESERVED" } })` → count;
   - `findUnitStatus(companyId, unitId, tx)`: `findFirst({ where: { id: unitId, companyId }, select: { status: true } })`;
   - `dbNow(tx?)`: `SELECT now() AS now` → `Date`.
 
   Export `releaseExpired`, `reserveUnitIfAvailable` and `findUnitStatus` from `src/features/units/server/index.ts`, next to phase 3's exports (`getUnit`, `listUnits` and the route handlers).
-- [ ] T010 [P] Create `tests/integration/support/pg-locks.ts`: `waitForLockWait(queryLike: string, timeoutMs = 3000)`.
+- [x] T010 [P] Create `tests/integration/support/pg-locks.ts`: `waitForLockWait(queryLike: string, timeoutMs = 3000)`.
   - It polls `SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE ${queryLike}` every 25 ms through `getDb()`.
   - It resolves on the first count above 0, and rejects with a clear message on timeout.
-- [ ] T011 Write `tests/integration/features/units/server/release-expired.test.ts`, a new file (phase 3's test file stays unchanged):
+- [x] T011 Write `tests/integration/features/units/server/release-expired.test.ts`, a new file (phase 3's test file stays unchanged):
   - **"release during an open reserve never frees the unit"** (research R10.3):
     1. Create a unit with `status: "RESERVED"` and an expired reservation.
     2. Start transaction A with `withTransaction`: `releaseExpired(companyId, tx)`, then `reserveUnitIfAvailable`, then insert a reservation with `expiresAt` 72 h ahead via `tx.reservation.create`. Then await a deferred promise.
@@ -115,7 +115,7 @@ Check these against the merged code in T001, and update the task text if a name 
   - **"releaseExpired frees a unit whose expiresAt equals the transaction now"**: in one `withTransaction`, read `dbNow(tx)`, set the fixture reservation's `expiresAt` to it, call `releaseExpired(companyId, tx)`, and expect 1 and `AVAILABLE`.
 
   Commit T008–T011 as `fix: lock expired units before release to survive concurrent reserves`.
-- [ ] T012 [P] Create `src/shared/lib/dates.ts` (`date-fns` + `@date-fns/tz`, no new package):
+- [x] T012 [P] Create `src/shared/lib/dates.ts` (`date-fns` + `@date-fns/tz`, no new package):
   - `formatRiyadhDateTime(iso)` = `format(new TZDate(iso, "Asia/Riyadh"), "yyyy/MM/dd HH:mm")`;
   - `formatTimeLeft(expiresAt, asOf)` → "X ساعة و Y دقيقة", "Y دقيقة", or "أقل من دقيقة", computed with `differenceInMinutes`. Never use `Date.now()`.
 
@@ -182,7 +182,7 @@ Check these against the merged code in T001, and update the task text if a name 
   - `reserveOptionsHandler`: `reserveOptionsQuerySchema.parse(toQueryInput(new URL(req.url).searchParams))`, then `getReserveOptions`.
 
   Create `src/features/reservations/server/index.ts` exporting the handlers. Create `src/app/api/reservations/route.ts` (`export { reserveHandler as POST }`) and `src/app/api/reservations/options/route.ts` (`export { reserveOptionsHandler as GET }`). Run T013 and T014 until green, then commit `feat: reserve a unit in one conditional transaction`.
-- [ ] T018 [US1] Show the reservation's expiry on the units list (FR-019a, research R6):
+- [x] T018 [US1] Show the reservation's expiry on the units list (FR-019a, research R6):
   - `src/features/units/server/units.repository.ts › findUnits` and `findUnit` take a `now: Date` and add `reservations: { where: { expiresAt: { gt: now } }, select: { expiresAt: true }, take: 1 }`. Never select client or rep.
   - `src/features/units/server/units.service.ts`: `listUnits` and `getUnit` call `releaseExpired(companyId)` first, then `const now = await dbNow()`, then pass `now`. The mapper sets `reservedUntil = row.status === "RESERVED" ? row.reservations[0]?.expiresAt.toISOString() ?? null : null`.
   - `src/features/units/units.types.ts`: `UnitDto` gets `reservedUntil: string | null`.
