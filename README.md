@@ -108,9 +108,14 @@ apply all migrations to it before running, and refuse any database whose name do
   price change yields `UNIT_CHANGED`. The audit entry records the exact replaced price in the same
   transaction. Rejected: `SELECT … FOR UPDATE` (extra raw SQL/lock duration without extra safety here),
   and an unconditional update after a read (races with reservations).
-- **Lazy reservation expiry.** Before unit reads and inside edits, one parameterized SQL `UPDATE` releases
-  only the company's `RESERVED` units with no unexpired reservation, using the database clock. `SOLD`
-  units stay sold. Rejected: separate find/update queries (a race window), and cron (not the agreed model).
+- **Lazy reservation expiry.** Before unit reads, edits, reservations and the reservations list,
+  `releaseExpired()` frees only the company's `RESERVED` units with no unexpired reservation, using the
+  database clock. `SOLD` units stay sold. Since phase 4 it runs two statements in one transaction:
+  `SELECT … ORDER BY id FOR UPDATE` on the candidate units, then an `UPDATE` of those ids that re-checks
+  the same condition. A single `UPDATE … NOT EXISTS` was proven unsafe under READ COMMITTED: when it waits
+  on a unit row that a reserve is holding, it re-checks only that row and keeps its old snapshot for the
+  subquery, so it freed a unit that had just been reserved. A test reproduces this race and fails on the
+  old statement. Rejected: cron (not the agreed model).
 - **404 before 403.** Single-record services load by session company first; SALES client reads/edits
   also scope by session owner. Missing records return 404 before checking edit roles. Creates check
   roles first; malformed path ids return 404 before body parsing. Rejected: role-first record checks,
@@ -119,6 +124,19 @@ apply all migrations to it before running, and refuse any database whose name do
   decides conflicts. After a failed transaction, the service maps the violation to a 400 with
   `fieldErrors.number`. Rejected: read-before-write duplicate checks (racy), and a top-level 409
   (does not put the message next to the field).
+
+- **Reserving is one conditional update (phase 4).** One transaction runs the expiry release, then
+  `UPDATE units SET status = 'RESERVED' WHERE id = … AND company_id = … AND status = 'AVAILABLE'`, then
+  inserts the reservation. Postgres lets exactly one of two parallel requests change the row; the other
+  updates 0 rows. After 0 rows the unit is re-read: missing (or another company's) → 404, otherwise 409
+  `UNIT_NOT_AVAILABLE`. Tests run two reps in parallel ten times in a row, through the service and through
+  the HTTP handlers. Lock order is always release first, then the unit row. Inside a transaction a service
+  calls only repository functions that take `tx`, never another service, so no transaction nests.
+- **One clock.** The expiry is written as `now() + 72 hours` in SQL, and "active" is read against the
+  database `now()`. The list returns that `asOf` time, so "time left" never uses the browser clock.
+- **The reserve dialog is a page-level slot.** `units/page.tsx` passes `<ReserveUnitDialog />` into
+  `<UnitsPage reserveDialog={…} />`. The units feature never imports the reservations feature. The dialog
+  opens from `?reserve=<unitId>` and closes by removing it, so a reload reopens it on the same unit.
 
 ## Assumptions
 
@@ -162,6 +180,21 @@ apply all migrations to it before running, and refuse any database whose name do
 - Reservation UI comes in phase 4; phase 3 tests create reservations directly in the test database.
 - Invalid list URL parameters show an error with a reset action instead of silently replacing the URL.
 
+### Phase 4: reservations
+
+- A reservation lasts exactly 72 hours from the database time when it is created. There is no manual
+  cancel and no extension. A rep may hold any number of reservations, for one or many clients (agreed in
+  clarify); this allows hoarding units, which a cap per rep would fix later.
+- Only SALES reserves, and only for its own clients. Another rep's client, or another company's unit or
+  client, returns 404. A unit that is not `AVAILABLE` returns 409 with an Arabic message.
+- Reserving starts only from the units list. The client picker shows the rep's first 50 clients by name.
+- A reservation is "active" while its expiry is strictly in the future and it has no approved contract.
+  An expired reservation row is kept as history; only the unit becomes available again.
+- The units list shows "reserved until" for a reserved unit, never the client or the rep.
+- `/reservations` lists active reservations, soonest expiry first: a rep sees only their own, the manager
+  sees the whole company with a rep column, and the accountant has no reservations view (the page redirects home, the API
+  returns 403, and there is no nav item).
+
 ## Security
 
 Phase 0 controls: settings validated at startup; secrets only in environment variables (`.env.example` has
@@ -188,11 +221,21 @@ Known limits:
   (a few common passwords tried against many accounts), and anyone who knows a user's email can lock that user
   out for 15 minutes on purpose.
 
+Phase 4 controls: a double reservation is impossible because the unit status changes with one
+conditional `UPDATE`, and the expiry release locks rows first (see Technical decisions). The owner, company,
+status and expiry of a reservation come from the session and the database, never from the request body.
+
 The "3 biggest risks" section is written in the final phase.
 
 ## Not done
 
-Units and clients are implemented. Reservation, contract, payment and audit-log screens remain for later phases.
+Units, clients and reservations are implemented. Contract, payment and audit-log screens remain for later phases.
+
+- Reservations: no manual cancel, no cap per rep or per client, and no search in the client picker (it shows the
+  first 50 clients by name).
+- A second database guard against overlapping reservations: an exclusion constraint (`btree_gist`, a
+  `reserved_at` + `expires_at` range per unit). The conditional `UPDATE` on the unit status already lets only
+  one reservation win, and the parallel test proves it, so time went to contracts and payments instead.
 
 - The app connects as the table owner, which could deliberately disable the append-only triggers.
   The fix is a separate migration owner role and a low-privilege app role, with `UPDATE`, `DELETE` and

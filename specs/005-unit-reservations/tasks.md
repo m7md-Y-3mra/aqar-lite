@@ -251,7 +251,7 @@ Check these against the merged code in T001, and update the task text if a name 
 
 **Independent Test**: quickstart §5 (sales1 rows); `reservations.service.test.ts` › "list".
 
-- [ ] T023 [US3] Add a **"list"** block to `tests/integration/features/reservations/server/reservations.service.test.ts`:
+- [x] T023 [US3] Add a **"list"** block to `tests/integration/features/reservations/server/reservations.service.test.ts`:
   - "rep sees only own";
   - "DTO has unit, client, salesRep, expiresAt";
   - "excludes expired";
@@ -261,19 +261,19 @@ Check these against the merged code in T001, and update the task text if a name 
   - "asOf is the DB time".
 
   Create `tests/integration/features/reservations/server/reservations.repository.test.ts`: "findActiveReservations excludes a row whose expiresAt equals now" (pass `now` = the fixture's `expiresAt`).
-- [ ] T024 [US3] Add to `src/features/reservations/server/reservations.repository.ts`:
+- [x] T024 [US3] Add to `src/features/reservations/server/reservations.repository.ts`:
   - `activeWhere(companyId, { salesRepId?, now })` = `{ companyId, salesRepId, expiresAt: { gt: now }, OR: [{ contract: { is: null } }, { contract: { is: { approvedAt: null } } }] }`;
   - `findActiveReservations(companyId, filter, { skip, take }, tx)` with `orderBy [{ expiresAt: "asc" }, { id: "asc" }]` and `reservationSelect`;
   - `countActiveReservations(companyId, filter, tx)`;
   - `dbNow(tx)`.
-- [ ] T025 [US3] Add `listActiveReservations(user, query)` to `src/features/reservations/server/reservations.service.ts`:
+- [x] T025 [US3] Add `listActiveReservations(user, query)` to `src/features/reservations/server/reservations.service.ts`:
   1. `ACCOUNTANT` → `FORBIDDEN`;
   2. `withTransaction`: `releaseExpired(companyId, tx)` → `now = dbNow(tx)` → `salesRepId = user.role === "SALES" ? user.userId : undefined` → find + count;
   3. return `{ items, total, page, pageSize, asOf: now.toISOString() }`.
 
   Add `listReservationsHandler` (query via `toQueryInput` + `reservationListQuerySchema`) to `reservations.routes.ts`. Export it, and `listActiveReservations`, from `server/index.ts`. Add `export { listReservationsHandler as GET }` to `src/app/api/reservations/route.ts`. Commit `feat: list active reservations`.
-- [ ] T026 [P] [US3] Add `reservationListOptions(query)` to `src/features/reservations/client/reservations.queries.ts`, with `placeholderData: keepPreviousData`.
-- [ ] T027 [US3] Create `src/features/reservations/client/reservations-page/`:
+- [x] T026 [P] [US3] Add `reservationListOptions(query)` to `src/features/reservations/client/reservations.queries.ts`, with `placeholderData: keepPreviousData`.
+- [x] T027 [US3] Create `src/features/reservations/client/reservations-page/`:
   - `reservations-page.tsx`: states:
     - `isPending` → `TableSkeleton`;
     - dimmed while `isFetching && isPlaceholderData`;
@@ -290,7 +290,7 @@ Check these against the merged code in T001, and update the task text if a name 
     - "المتبقي" = `formatTimeLeft(expiresAt, asOf)`.
 
     User text is rendered as text. The table scrolls inside its own container on small screens.
-- [ ] T028 [US3] Create `src/app/(app)/reservations/page.tsx`:
+- [x] T028 [US3] Create `src/app/(app)/reservations/page.tsx`:
   1. `const user = await requireUser()`; `user.role === "ACCOUNTANT"` → `redirect("/")`;
   2. `reservationListQuerySchema.safeParse(toQueryInput(await searchParams))`;
   3. `prefetchQuery({ queryKey: reservationKeys.list(query), queryFn: () => listActiveReservations(user, query) })`;
@@ -307,14 +307,14 @@ Check these against the merged code in T001, and update the task text if a name 
 
 **Independent Test**: quickstart §5 (manager and accountant rows); `reservations.service.test.ts` › "list" (manager) and "tenant isolation".
 
-- [ ] T030 [US4] Add to `tests/integration/features/reservations/server/reservations.service.test.ts`:
+- [x] T030 [US4] Add to `tests/integration/features/reservations/server/reservations.service.test.ts`:
   - "list › manager sees all reps of the company";
   - "role checks › ACCOUNTANT cannot list";
   - "tenant isolation › manager of A never sees B's reservations";
   - "tenant isolation › rep of A never sees B's reservations".
 
   Add to `reservations.routes.test.ts`: "GET as accountant → 403", "GET /api/reservations?companyId=<B> as manager of A returns only A's rows".
-- [ ] T031 [US4] Confirm `reservations-table.tsx` shows the rep column only for MANAGER, and that the rep column and the service filter both pass T030. Commit `test: manager and accountant access to reservations`.
+- [x] T031 [US4] Confirm `reservations-table.tsx` shows the rep column only for MANAGER, and that the rep column and the service filter both pass T030. Commit `test: manager and accountant access to reservations`.
 
 **Checkpoint**: all four stories work on their own.
 
@@ -322,14 +322,14 @@ Check these against the merged code in T001, and update the task text if a name 
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T032 [P] Update `README.md`:
+- [x] T032 [P] Update `README.md`:
   - **Assumptions**: from spec.md › Assumptions and Clarifications — no reservation limit (and the hoarding risk); reserve only from the units list; the accountant has no reservations view; "active" = strictly future expiry and no approved contract; the DB clock; 404 vs 409.
   - **Technical decisions**: R1 (conditional update; 0 rows → re-read → 404/409), R2 (two-statement release; READ COMMITTED; lock order; no nested transactions), R4 (one DB clock), R7 (page-level slot composition, URL-driven dialog).
   - **Not done**: manual cancel; per-rep or per-client cap; client search in the picker (first 50 by name); an exclusion constraint as a second DB guard against overlapping reservations (`btree_gist`, `reserved_at` + `expires_at` range per unit; research R3).
   - **Security**: R2 under "duplicated money operations / double reservation".
 - [ ] T033 Run quickstart §2–§7 by hand at 375 px and 1280 px, as sales1, sales2, manager and accountant. Fix what fails.
-- [ ] T034 Run `npm run lint && npm run typecheck && npm run test` and `npm run test:integration`. Run the concurrency block 3 times in a row (`npx vitest run --config vitest.integration.config.ts -t concurrency`) to show it is stable. Then run `/security-review` and fix every open issue.
-- [ ] T035 Check that `CLAUDE.md` is still only `@AGENTS.md` (no technologies block), and that no file in `src/features/units` or `src/features/clients` imports from `src/features/reservations`. Commit `docs: phase 4 README notes`.
+- [x] T034 Run `npm run lint && npm run typecheck && npm run test` and `npm run test:integration`. Run the concurrency block 3 times in a row (`npx vitest run --config vitest.integration.config.ts -t concurrency`) to show it is stable. Then run `/security-review` and fix every open issue.
+- [x] T035 Check that `CLAUDE.md` is still only `@AGENTS.md` (no technologies block), and that no file in `src/features/units` or `src/features/clients` imports from `src/features/reservations`. Commit `docs: phase 4 README notes`.
 
 ---
 
