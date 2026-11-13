@@ -4,12 +4,17 @@ import { buildSchedule } from "@/features/contracts/domain/schedule";
 import { minFinalPrice } from "@/features/contracts/domain/pricing";
 import { dbNow } from "@/features/contracts/server/contracts.repository";
 import {
+  approveContract,
+  createContract,
+  updateContract,
   getContract,
   getContractOptions,
   listContracts,
 } from "@/features/contracts/server/contracts.service";
 import type { SessionUser } from "@/server/auth/session.service";
 import { getDb } from "@/server/db";
+import { listUnits } from "@/features/units/server";
+import { unitListQuerySchema } from "@/features/units/units.schemas";
 import { toRiyadhDate } from "@/shared/lib/dates";
 import {
   makeClient,
@@ -328,5 +333,297 @@ describe("tenant isolation", () => {
     await expect(
       getContractOptions(companies.a.sales1, foreign.reservationId),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+function terms(row: Awaited<ReturnType<typeof fixture>>) {
+  return {
+    finalPrice: Number(row.finalPrice),
+    downPayment: Number(row.downPayment),
+    installmentCount: row.installmentCount,
+  };
+}
+
+async function approvalState(row: Awaited<ReturnType<typeof fixture>>) {
+  const db = getDb();
+  return {
+    contract: await db.contract.findUniqueOrThrow({ where: { id: row.id } }),
+    unit: await db.unit.findUniqueOrThrow({ where: { id: row.unit.id } }),
+    lines: await db.installment.findMany({ where: { contractId: row.id }, orderBy: { seq: "asc" } }),
+    audits: await db.auditLog.findMany({ where: { entityId: row.id, action: "CONTRACT_APPROVED" } }),
+  };
+}
+
+async function expectUnapproved(row: Awaited<ReturnType<typeof fixture>>) {
+  const state = await approvalState(row);
+  expect(state.contract.approvedAt).toBeNull();
+  expect(state.unit.status).toBe("RESERVED");
+  expect(state.lines).toHaveLength(0);
+  expect(state.audits).toHaveLength(0);
+}
+
+describe("approve", () => {
+  it("success: approvedAt set, unit SOLD, lines stored, one CONTRACT_APPROVED audit row with unitPrice and finalPrice", async () => {
+    const row = await fixture();
+    await getDb().contract.update({ where: { id: row.id }, data: { downPayment: 100_000n } });
+    const input = { ...terms(row), downPayment: 100_000 };
+    const dto = await approveContract(companies.a.accountant, row.id, input);
+    const state = await approvalState(row);
+    expect(dto.status).toBe("APPROVED");
+    expect(dto.schedule.estimated).toBe(false);
+    expect(state.contract.approvedAt).not.toBeNull();
+    expect(state.unit.status).toBe("SOLD");
+    expect(state.lines).toHaveLength(input.installmentCount + 1);
+    expect(state.audits).toHaveLength(1);
+    expect(state.audits[0]).toMatchObject({
+      companyId: companies.a.companyId, userId: companies.a.accountant.userId,
+      createdAt: state.contract.approvedAt,
+      meta: { unitId: row.unit.id, unitPrice: Number(row.unit.price), ...input, startDate: dto.startDate },
+    });
+  });
+
+  it("stored lines sum to finalPrice", async () => {
+    const row = await fixture();
+    await approveContract(companies.a.accountant, row.id, terms(row));
+    const { lines } = await approvalState(row);
+    expect(lines.reduce((sum, line) => sum + line.amount, 0n)).toBe(row.finalPrice);
+  });
+
+  it("stored due dates equal buildSchedule(terms, startDate)", async () => {
+    const row = await fixture();
+    const dto = await approveContract(companies.a.accountant, row.id, terms(row));
+    const { lines } = await approvalState(row);
+    expect(lines.map((line) => ({ seq: line.seq, dueDate: line.dueDate.toISOString().slice(0, 10), amount: Number(line.amount) })))
+      .toEqual(buildSchedule(terms(row), dto.startDate!));
+  });
+
+  it("down payment 0 stores no seq 0", async () => {
+    const row = await fixture();
+    await approveContract(companies.a.accountant, row.id, terms(row));
+    const { lines } = await approvalState(row);
+    expect(lines).toHaveLength(row.installmentCount);
+    expect(lines.some((line) => line.seq === 0)).toBe(false);
+  });
+
+  it("all-or-nothing: forced failure on the audit insert leaves draft, RESERVED unit, 0 installments, 0 audit rows", async () => {
+    const row = await fixture();
+    const db = getDb();
+    try {
+      await db.$executeRawUnsafe(`CREATE FUNCTION test_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced failure'; END; $$`);
+      await db.$executeRawUnsafe(`CREATE TRIGGER test_fail_audit BEFORE INSERT ON audit_logs FOR EACH ROW WHEN (NEW.action = 'CONTRACT_APPROVED' AND NEW.entity_id = '${row.id}') EXECUTE FUNCTION test_fail_audit()`);
+      await expect(approveContract(companies.a.accountant, row.id, terms(row))).rejects.toThrow();
+      await expectUnapproved(row);
+    } finally {
+      await db.$executeRawUnsafe('DROP TRIGGER IF EXISTS test_fail_audit ON audit_logs');
+      await db.$executeRawUnsafe('DROP FUNCTION IF EXISTS test_fail_audit()');
+    }
+  });
+
+  for (const field of ["finalPrice", "downPayment", "installmentCount"] as const) {
+    it(`different ${field} → CONTRACT_CHANGED, still a draft`, async () => {
+      const row = await fixture();
+      const input = terms(row);
+      input[field] += 1;
+      await expect(approveContract(companies.a.accountant, row.id, input)).rejects.toMatchObject({ code: "CONTRACT_CHANGED" });
+      await expectUnapproved(row);
+    });
+  }
+
+  it("expired reservation → RESERVATION_EXPIRED, unit not SOLD, no installments, no audit row", async () => {
+    const row = await fixture();
+    await expire(row.reservationId);
+    await expect(approveContract(companies.a.accountant, row.id, terms(row))).rejects.toMatchObject({ code: "RESERVATION_EXPIRED" });
+    await expectUnapproved(row);
+  });
+
+  it("non-RESERVED unit → RESERVATION_EXPIRED", async () => {
+    const row = await fixture();
+    await getDb().unit.update({ where: { id: row.unit.id }, data: { status: "AVAILABLE" } });
+    await expect(approveContract(companies.a.accountant, row.id, terms(row))).rejects.toMatchObject({ code: "RESERVATION_EXPIRED" });
+    const state = await approvalState(row);
+    expect(state.contract.approvedAt).toBeNull();
+    expect(state.lines).toHaveLength(0);
+    expect(state.audits).toHaveLength(0);
+  });
+
+  it("approving twice → CONTRACT_ALREADY_APPROVED", async () => {
+    const row = await fixture();
+    await approveContract(companies.a.accountant, row.id, terms(row));
+    await expect(approveContract(companies.a.accountant, row.id, terms(row))).rejects.toMatchObject({ code: "CONTRACT_ALREADY_APPROVED" });
+  });
+
+  it("unit stays SOLD after the reservation's expiry passes", async () => {
+    const row = await fixture();
+    await approveContract(companies.a.accountant, row.id, terms(row));
+    await expire(row.reservationId);
+    await listUnits(companies.a.manager, unitListQuerySchema.parse({ page: "1", pageSize: "20", order: "asc" }));
+    expect((await approvalState(row)).unit.status).toBe("SOLD");
+  });
+});
+
+describe("mutation role checks", () => {
+  for (const role of ["manager", "accountant"] as const) {
+    it(`${role.toUpperCase()} cannot create or edit`, async () => {
+      const row = await fixture();
+      await expect(createContract(companies.a[role], { reservationId: row.reservationId, ...terms(row) })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(updateContract(companies.a[role], row.id, terms(row))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    });
+  }
+  for (const role of ["manager", "sales1"] as const) {
+    it(`${role.toUpperCase()} cannot approve`, async () => {
+      const row = await fixture();
+      await expect(approveContract(companies.a[role], row.id, terms(row))).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expectUnapproved(row);
+    });
+  }
+});
+
+describe("mutation tenant isolation and ownership", () => {
+  it("accountant of B approving A's contract → NOT_FOUND, nothing changes", async () => {
+    const row = await fixture();
+    await expect(approveContract(companies.b.accountant, row.id, terms(row))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expectUnapproved(row);
+  });
+  it("rep cannot create or edit another rep's or company's reservation/contract", async () => {
+    for (const owner of [companies.a.sales2, companies.b.sales1]) {
+      const row = await fixture(owner);
+      await expect(createContract(companies.a.sales1, { reservationId: row.reservationId, ...terms(row) })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(updateContract(companies.a.sales1, row.id, terms(row))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    }
+  });
+});
+
+describe("concurrency", () => {
+  it("two parallel approvals: one wins, one set of installments, one audit row (×10)", async () => {
+    for (let i = 0; i < 10; i++) {
+      const row = await fixture();
+      const results = await Promise.allSettled([
+        approveContract(companies.a.accountant, row.id, terms(row)),
+        approveContract(companies.a.accountant, row.id, terms(row)),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const rejected = results.find((r) => r.status === "rejected");
+      expect(rejected?.reason).toMatchObject({ code: "CONTRACT_ALREADY_APPROVED" });
+      const state = await approvalState(row);
+      expect(state.lines).toHaveLength(row.installmentCount);
+      expect(state.audits).toHaveLength(1);
+    }
+  });
+});
+
+async function reservationFixture(owner = companies.a.sales1) {
+  const unit = await makeUnit(owner.companyId, { status: "RESERVED" });
+  const client = await makeClient(owner.companyId, owner.userId);
+  const reservation = await makeReservation({
+    companyId: owner.companyId, unitId: unit.id, clientId: client.id, salesRepId: owner.userId,
+  });
+  return { reservation, unit, owner, input: { reservationId: reservation.id, finalPrice: Number(unit.price), downPayment: 100_000, installmentCount: 3 } };
+}
+
+describe("create", () => {
+  it("rep creates a draft from own active reservation, unit stays RESERVED, 0 installments and audit rows", async () => {
+    const row = await reservationFixture();
+    const dto = await createContract(row.owner, row.input);
+    expect(dto).toMatchObject({ status: "DRAFT", finalPrice: row.input.finalPrice, downPayment: row.input.downPayment, installmentCount: row.input.installmentCount, schedule: { estimated: true } });
+    expect(dto.reservation.id).toBe(row.reservation.id);
+    expect(dto.schedule.lines).toEqual(buildSchedule(row.input, dto.today));
+    expect(JSON.parse(JSON.stringify(dto))).toEqual(dto);
+    expect((await getDb().unit.findUniqueOrThrow({ where: { id: row.unit.id } })).status).toBe("RESERVED");
+    expect(await getDb().installment.count({ where: { contractId: dto.id } })).toBe(0);
+    expect(await getDb().auditLog.count({ where: { entityId: dto.id } })).toBe(0);
+  });
+
+  it("below 95% → VALIDATION_ERROR with fieldErrors.finalPrice and minimum in riyals", async () => {
+    const row = await reservationFixture();
+    await expect(createContract(row.owner, { ...row.input, finalPrice: minFinalPrice(Number(row.unit.price)) - 1 })).rejects.toMatchObject({
+      code: "VALIDATION_ERROR", fieldErrors: { finalPrice: [expect.stringContaining("ريال")] },
+    });
+    expect(await getDb().contract.count({ where: { reservationId: row.reservation.id } })).toBe(0);
+  });
+
+  it("exactly 95% succeeds", async () => {
+    const row = await reservationFixture();
+    const finalPrice = minFinalPrice(Number(row.unit.price));
+    expect((await createContract(row.owner, { ...row.input, finalPrice })).finalPrice).toBe(finalPrice);
+  });
+
+  it("expired reservation → RESERVATION_EXPIRED", async () => {
+    const row = await reservationFixture();
+    await expire(row.reservation.id);
+    await expect(createContract(row.owner, row.input)).rejects.toMatchObject({ code: "RESERVATION_EXPIRED" });
+  });
+
+  it("reservation already has a contract → CONTRACT_EXISTS", async () => {
+    const row = await fixture();
+    await expect(createContract(row.owner, { reservationId: row.reservationId, ...terms(row) })).rejects.toMatchObject({ code: "CONTRACT_EXISTS" });
+  });
+
+  it("two parallel creates: one wins, one CONTRACT_EXISTS", async () => {
+    const row = await reservationFixture();
+    const results = await Promise.allSettled([
+      createContract(row.owner, row.input), createContract(row.owner, row.input),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((r) => r.status === "rejected")?.reason).toMatchObject({ code: "CONTRACT_EXISTS" });
+    expect(await getDb().contract.count({ where: { reservationId: row.reservation.id } })).toBe(1);
+  });
+});
+
+describe("edit", () => {
+  it("rep edits own draft", async () => {
+    const row = await fixture();
+    const input = { ...terms(row), finalPrice: Number(row.finalPrice) + 123, downPayment: 100_000, installmentCount: 3 };
+    const dto = await updateContract(row.owner, row.id, input);
+    expect(dto).toMatchObject({ ...input, status: "DRAFT", schedule: { estimated: true } });
+    expect(dto.schedule.lines).toEqual(buildSchedule(input, dto.today));
+    await expectUnapproved(row);
+  });
+
+  it("approved contract → CONTRACT_ALREADY_APPROVED, values unchanged", async () => {
+    const row = await fixture();
+    await approveContract(companies.a.accountant, row.id, terms(row));
+    const before = await approvalState(row);
+    await expect(updateContract(row.owner, row.id, { ...terms(row), finalPrice: Number(row.finalPrice) + 100 })).rejects.toMatchObject({ code: "CONTRACT_ALREADY_APPROVED" });
+    expect(await approvalState(row)).toEqual(before);
+  });
+
+  it("expired reservation → RESERVATION_EXPIRED, values unchanged", async () => {
+    const row = await fixture();
+    await expire(row.reservationId);
+    const before = await approvalState(row);
+    await expect(updateContract(row.owner, row.id, { ...terms(row), finalPrice: Number(row.finalPrice) + 100 })).rejects.toMatchObject({ code: "RESERVATION_EXPIRED" });
+    expect(await approvalState(row)).toEqual(before);
+  });
+
+  it("below minimum → VALIDATION_ERROR, values unchanged", async () => {
+    const row = await fixture();
+    await expect(updateContract(row.owner, row.id, { ...terms(row), finalPrice: minFinalPrice(Number(row.unit.price)) - 1 })).rejects.toMatchObject({ code: "VALIDATION_ERROR", fieldErrors: { finalPrice: expect.any(Array) } });
+    expect((await approvalState(row)).contract.finalPrice).toBe(row.finalPrice);
+  });
+
+  it("edit vs approve never both succeed (×10)", async () => {
+    for (let i = 0; i < 10; i++) {
+      const row = await fixture();
+      const old = terms(row);
+      const edited = { ...old, finalPrice: old.finalPrice + 100 };
+      const [edit, approval] = await Promise.allSettled([
+        updateContract(row.owner, row.id, edited), approveContract(companies.a.accountant, row.id, old),
+      ]);
+      expect([edit, approval].filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const state = await approvalState(row);
+      if (edit.status === "fulfilled") {
+        expect(approval.status).toBe("rejected");
+        if (approval.status === "rejected") expect(approval.reason).toMatchObject({ code: "CONTRACT_CHANGED" });
+        expect(state.contract.finalPrice).toBe(BigInt(edited.finalPrice));
+        await expectUnapproved(row);
+      } else {
+        expect(edit.reason).toMatchObject({ code: "CONTRACT_ALREADY_APPROVED" });
+        expect(state.contract.finalPrice).toBe(row.finalPrice);
+        expect(state.contract.approvedAt).not.toBeNull();
+        expect(state.unit.status).toBe("SOLD");
+        expect(state.lines).toHaveLength(old.installmentCount);
+        expect(state.audits).toHaveLength(1);
+      }
+    }
   });
 });
