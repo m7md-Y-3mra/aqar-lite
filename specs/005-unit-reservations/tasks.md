@@ -133,7 +133,7 @@ Check these against the merged code in T001, and update the task text if a name 
 
 ### Tests for User Story 1 ⚠️ (write first, see them fail)
 
-- [ ] T013 [US1] Write `tests/integration/features/reservations/server/reservations.service.test.ts` (later stories add more blocks to it), using `makeTwoCompanies`, `makeUnit`, `makeClient` and `makeReservation`. Every refusal test asserts that the unit's status and the unit's reservation count are unchanged (FR-008).
+- [x] T013 [US1] Write `tests/integration/features/reservations/server/reservations.service.test.ts` (later stories add more blocks to it), using `makeTwoCompanies`, `makeUnit`, `makeClient` and `makeReservation`. Every refusal test asserts that the unit's status and the unit's reservation count are unchanged (FR-008).
   - **"reserve"**:
     - "rep reserves an available unit for own client" (DTO shape; unit `RESERVED`; row `salesRepId` = rep);
     - "expiresAt − 72 h lies between the DB times read just before and just after the call" (`dbNow()` before and after);
@@ -154,7 +154,7 @@ Check these against the merged code in T001, and update the task text if a name 
     - "MANAGER and ACCOUNTANT → FORBIDDEN";
     - "unit of company B → NOT_FOUND";
     - "answers within 2 s while another unit of the company has an expired reservation" (guards against nested transactions, R2).
-- [ ] T014 [P] [US1] Write `tests/integration/features/reservations/server/reservations.routes.test.ts` with phase 2's `apiRequest` and a logged-in session:
+- [x] T014 [P] [US1] Write `tests/integration/features/reservations/server/reservations.routes.test.ts` with phase 2's `apiRequest` and a logged-in session:
   - "POST as accountant → 403";
   - "POST with another rep's client → 404";
   - "409 body has code UNIT_NOT_AVAILABLE and the Arabic message";
@@ -166,10 +166,10 @@ Check these against the merged code in T001, and update the task text if a name 
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Create `src/features/reservations/server/reservations.repository.ts` (`import "server-only"`; every function takes `companyId` first):
+- [x] T015 [US1] Create `src/features/reservations/server/reservations.repository.ts` (`import "server-only"`; every function takes `companyId` first):
   - `insertReservation(companyId, { unitId, clientId, salesRepId }, tx)` with `tx.$queryRaw<…>`: `INSERT INTO reservations (company_id, unit_id, client_id, sales_rep_id, expires_at) VALUES (${companyId}::uuid, ${unitId}::uuid, ${clientId}::uuid, ${salesRepId}::uuid, now() + make_interval(hours => ${RESERVATION_HOURS})) RETURNING id`;
   - `findReservationById(companyId, id, tx)` selecting `id, expiresAt, unit { id, projectName, number }, client { id, name }, salesRep { id, name }` (shared `reservationSelect`).
-- [ ] T016 [US1] Create `src/features/reservations/server/reservations.service.ts` (`import "server-only"`, no Request/Response) with a `toReservationDto(row)` mapper (ISO strings) and:
+- [x] T016 [US1] Create `src/features/reservations/server/reservations.service.ts` (`import "server-only"`, no Request/Response) with a `toReservationDto(row)` mapper (ISO strings) and:
   - `reserveUnit(user: SessionUser, input: ReserveInput)`:
     1. `user.role !== "SALES"` → `throw new AppError("FORBIDDEN")`;
     2. `await getClient(user, input.clientId)` (throws `NOT_FOUND`);
@@ -177,7 +177,7 @@ Check these against the merged code in T001, and update the task text if a name 
 
     No other service is called inside the transaction (R2).
   - `getReserveOptions(user, unitId)`: role ≠ SALES → `FORBIDDEN`; `const unit = await getUnit(user, unitId)`; `const clients = await listClients(user, { page: 1, pageSize: 50 })`; return `{ unit: { id, projectName, number, status }, clients: clients.items.map(({ id, name }) => ({ id, name })) }`. No outer transaction.
-- [ ] T017 [US1] Create `src/features/reservations/server/reservations.routes.ts`:
+- [x] T017 [US1] Create `src/features/reservations/server/reservations.routes.ts`:
   - `reserveHandler = handleRoute({ auth: "user", handler })`: `reserveInputSchema.parse(await readJson(req))`, then `reserveUnit(user, input)`, then `{ data, status: 201 }`.
   - `reserveOptionsHandler`: `reserveOptionsQuerySchema.parse(toQueryInput(new URL(req.url).searchParams))`, then `getReserveOptions`.
 
@@ -189,10 +189,10 @@ Check these against the merged code in T001, and update the task text if a name 
   - Add to `tests/integration/features/units/server/units.service.test.ts`: "list › reserved unit has reservedUntil = active expiry", "list › available unit has reservedUntil null", "list › DTO has no client or salesRep key".
 
   Commit `feat: show reserved-until on units`.
-- [ ] T019 [P] [US1] Create `src/features/reservations/client/reservations.queries.ts`:
+- [x] T019 [P] [US1] Create `src/features/reservations/client/reservations.queries.ts`:
   - `reserveOptionsOptions(unitId)` = `queryOptions({ queryKey: reservationKeys.options(unitId), queryFn: () => apiFetch<ReserveOptionsDto>(…), staleTime: 0 })`;
   - `reserveUnit(input)` = `apiFetch<ReservationDto>("/api/reservations", { method: "POST", body })`.
-- [ ] T020 [US1] Create the `src/features/reservations/client/reserve-unit-dialog/` folder:
+- [x] T020 [US1] Create the `src/features/reservations/client/reserve-unit-dialog/` folder:
   - `types.ts`: `ReserveUnitDialogProps { unitsQueryKey: readonly unknown[] }`.
   - `use-reserve-unit-dialog.ts`:
     - read `reserve` with `useSearchParams`; `open = z.uuid().safeParse(value).success`. An invalid value is removed with `router.replace`.
@@ -210,7 +210,7 @@ Check these against the merged code in T001, and update the task text if a name 
 
     Arabic text only; logical classes only (`ms-`/`me-`/`ps-`/`pe-`).
   - `index.ts`: export the component and its types.
-- [ ] T021 [US1] Change the units page to host the slot (AGENTS §2 as amended in `e3f19ed`):
+- [x] T021 [US1] Change the units page to host the slot (AGENTS §2 as amended in `e3f19ed`):
   - `src/features/units/client/units-page/units-page.tsx` takes `reserveDialog?: ReactNode` (props type in the folder's `types.ts`) and renders it once.
   - `use-units-page.ts` gains `openReserve(unitId)`: `router.replace` with the current params plus `reserve=<id>`, `{ scroll: false }`.
   - `components/units-table/units-table.tsx`:
@@ -230,7 +230,7 @@ Check these against the merged code in T001, and update the task text if a name 
 
 **Independent Test**: `reservations.service.test.ts` › "expiry"; quickstart §4.
 
-- [ ] T022 [US2] Add an **"expiry"** block to `tests/integration/features/reservations/server/reservations.service.test.ts`:
+- [x] T022 [US2] Add an **"expiry"** block to `tests/integration/features/reservations/server/reservations.service.test.ts`:
   - "expired reservation frees the unit and another rep can reserve it":
     1. rep1 reserves;
     2. set that reservation's `expiresAt` to 1 minute ago with `getDb().reservation.update`;
@@ -295,7 +295,7 @@ Check these against the merged code in T001, and update the task text if a name 
   2. `reservationListQuerySchema.safeParse(toQueryInput(await searchParams))`;
   3. `prefetchQuery({ queryKey: reservationKeys.list(query), queryFn: () => listActiveReservations(user, query) })`;
   4. `<HydrationBoundary state={dehydrate(queryClient)}><ReservationsPage /></HydrationBoundary>`.
-- [ ] T029 [P] [US3] Add `{ href: "/reservations", label: "الحجوزات", roles: ["MANAGER", "SALES"] }` to `NAV_ITEMS` in `src/shared/lib/navigation.ts`. Add "reservations item for MANAGER and SALES, not ACCOUNTANT" to `tests/unit/shared/lib/navigation.test.ts`. Commit T026–T029 as `feat: reservations page for reps`.
+- [x] T029 [P] [US3] Add `{ href: "/reservations", label: "الحجوزات", roles: ["MANAGER", "SALES"] }` to `NAV_ITEMS` in `src/shared/lib/navigation.ts`. Add "reservations item for MANAGER and SALES, not ACCOUNTANT" to `tests/unit/shared/lib/navigation.test.ts`. Commit T026–T029 as `feat: reservations page for reps`.
 
 **Checkpoint**: a rep sees their own active reservations with the expiry and the time left.
 
