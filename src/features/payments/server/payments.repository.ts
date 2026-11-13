@@ -26,7 +26,7 @@ export async function insertPayment(
 ) {
   const [row] = await tx.$queryRaw<{ id: string; amount: bigint; createdAt: Date }[]>`
     INSERT INTO payments (contract_id, amount, idempotency_key)
-    SELECT c.id, ${BigInt(input.amount)}, ${input.idempotencyKey}
+    SELECT c.id, ${BigInt(input.amount)}::bigint, ${input.idempotencyKey}::text
     FROM contracts c
     WHERE c.id = ${input.contractId}::uuid AND c.company_id = ${companyId}::uuid
     RETURNING id, amount, created_at AS "createdAt"
