@@ -522,6 +522,6 @@ AI tools were used in every phase, with SpecKit as the workflow (`specs/001-…`
   (for example 120 installments at most, the 31 January rule, no audit filters) were asked in the clarify
   step, decided by the developer, and recorded in the spec and in "Assumptions" above.
 - **Code:** written by Claude Code and by Codex (through the pi CLI) from the task lists, part by part.
-- **Review:** each part's diff was read against `AGENTS.md` and the constitution, the full lint, typecheck,
-  unit and integration suites were run, race tests were checked to fail against the old code, and
-  `/security-review` ran before each merge.
+- **Review:** each part's diff was read against `AGENTS.md` and the constitution, and the full lint,
+  typecheck, unit and integration suites were run before each commit. `/security-review` (Claude Code) was
+  run on the phase 7 changes.

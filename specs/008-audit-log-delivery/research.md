@@ -109,10 +109,10 @@ alternative that was rejected.
 
 ## R11. Scope of the security review
 
-- **Decision**: `/security-review` runs on this branch's diff against `main`. Each earlier phase passed its own
-  review before merge. The final README Security section states the top 3 risks across the whole system.
-- **Rationale**: the review tool reviews pending changes, so "0 open issues" means this phase's changes. The
-  full-system view comes from the per-phase reviews plus the README.
+- **Decision**: `/security-review` runs on this branch's diff against `main`. The final README Security section
+  states the top 3 risks across the whole system.
+- **Rationale**: the review tool reviews pending changes, so "0 open issues" means this phase's changes only.
+  Earlier phases are covered only where their own review ran; phase 6's tasks.md leaves its review (T025) open.
 
 ## R12. Agent context script
 
