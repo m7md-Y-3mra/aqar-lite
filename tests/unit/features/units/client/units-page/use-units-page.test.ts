@@ -89,17 +89,19 @@ describe("useUnitsPage", () => {
     expect(useUnitsPage().query).toEqual({ page: 1, pageSize: 20, order: "asc" });
   });
 
-  it("openReserve keeps the current params and adds reserve without scrolling", () => {
+  it("openReserve keeps the current params and adds reserve with a shallow replace", () => {
+    const replaceState = vi.fn();
+    vi.stubGlobal("window", { history: { replaceState } });
     navigation.search = "page=2&status=AVAILABLE";
     useUnitsPage().openReserve("11111111-1111-4111-8111-111111111111");
-    const [href, options] = navigation.replace.mock.lastCall as [string, { scroll: boolean }];
-    const url = new URL(href, "http://localhost");
+    const url = new URL(replaceState.mock.lastCall?.[2] as string, "http://localhost");
     expect(url.pathname).toBe("/units");
     expect(Object.fromEntries(url.searchParams)).toEqual({
       page: "2",
       status: "AVAILABLE",
       reserve: "11111111-1111-4111-8111-111111111111",
     });
-    expect(options).toEqual({ scroll: false });
+    expect(navigation.replace).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

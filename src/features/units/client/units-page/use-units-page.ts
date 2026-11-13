@@ -44,7 +44,8 @@ export function useUnitsPage() {
     openReserve: (unitId: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("reserve", unitId);
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      // Shallow update: Next syncs useSearchParams without a server round trip.
+      window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
     },
   };
 }

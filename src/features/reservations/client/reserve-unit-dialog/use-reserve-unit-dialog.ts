@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -18,29 +18,31 @@ import type { ReserveInput } from "../../reservations.types";
 import { reserveOptionsOptions, reserveUnit } from "../reservations.queries";
 import type { ReserveUnitDialogProps } from "./types";
 
+function withoutReserve(pathname: string, searchParams: URLSearchParams) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete("reserve");
+  const search = params.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}
+
 export function useReserveUnitDialog({ unitsQueryKey }: ReserveUnitDialogProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const value = searchParams.get("reserve");
   const open = z.uuid().safeParse(value).success;
   const unitId = open ? value! : "";
 
+  // Shallow updates: Next syncs useSearchParams without a server round trip,
+  // so the dialog opens and closes at once.
   function close() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("reserve");
-    const search = params.toString();
-    router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
+    window.history.replaceState(null, "", withoutReserve(pathname, searchParams));
   }
 
   useEffect(() => {
     if (value !== null && !open) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("reserve");
-      const search = params.toString();
-      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
+      window.history.replaceState(null, "", withoutReserve(pathname, searchParams));
     }
-  }, [value, open, searchParams, pathname, router]);
+  }, [value, open, searchParams, pathname]);
 
   const options = useQuery({ ...reserveOptionsOptions(unitId), enabled: open });
   const form = useForm<ReserveInput>({
