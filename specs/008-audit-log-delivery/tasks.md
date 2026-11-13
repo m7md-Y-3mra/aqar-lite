@@ -15,9 +15,10 @@ the plan's rule → test map. Write each test task before the code it proves; it
   - T018: the hand check ran on the clean-clone stack (desktop and 375 px, badges, details, links, roles); the
     loading and error states were not forced by hand. Headings touch the screen edge on phones on every page
     (existing app shell, not this phase).
-  - T028: lint, typecheck and integration (29 files, 427 tests) pass. Unit: 370 of 371 pass; the phase 5 test
-    `schedule.test.ts` › "sum equals finalPrice for every combination" takes about 26 s alone and timed out at
-    30 s in full runs while the machine was busy. It passes on its own and was not changed here.
+  - T028: lint, typecheck, unit (39 files, 371 tests, twice in a row) and integration (29 files, 427 tests) pass.
+    The phase 5 test `schedule.test.ts` › "sum equals finalPrice for every combination" takes about 26 s alone
+    and timed out at the global 30 s limit on a busy machine; it now has its own 120 s timeout.
+  - T029: covers this branch only. Phase 6 (payments) left its own `/security-review` (its T025) open.
   - T030: ports 3000 and 5433 were held by another worktree's dev server and database, so the clean clone ran
     with `DB_HOST_PORT=5435` and an untracked override mapping the app to 3001 (`APP_ORIGIN` to match).
     Build, migrations, seed (2 companies, 8 users, 24 units, 12 clients), the full flow, the audit log, and
