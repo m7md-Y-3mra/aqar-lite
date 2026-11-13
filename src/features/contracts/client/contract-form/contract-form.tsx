@@ -21,7 +21,7 @@ export function ContractForm(props: ContractFormProps) {
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="finalPrice">السعر النهائي (ريال)</Label>
-          <Controller control={form.control} name="finalPrice" render={({ field }) => (
+          <Controller control={form.control} name="finalPrice" rules={{ deps: ["downPayment", "installmentCount"] }} render={({ field }) => (
             <MoneyInput id="finalPrice" name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
               disabled={isPending} aria-invalid={!!errors.finalPrice} aria-describedby="finalPrice-hint finalPrice-error" />
           )} />
@@ -30,7 +30,7 @@ export function ContractForm(props: ContractFormProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="downPayment">الدفعة المقدمة (ريال)</Label>
-          <Controller control={form.control} name="downPayment" render={({ field }) => (
+          <Controller control={form.control} name="downPayment" rules={{ deps: ["installmentCount"] }} render={({ field }) => (
             <MoneyInput id="downPayment" name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
               disabled={isPending} aria-invalid={!!errors.downPayment} aria-describedby="downPayment-error" />
           )} />
