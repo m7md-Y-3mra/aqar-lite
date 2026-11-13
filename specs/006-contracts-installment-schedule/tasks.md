@@ -45,7 +45,8 @@ Check these against the rebased code in T001, and update the task text if a name
 - [ ] T001 Gate:
   - confirm phase 4 is merged into `main`, and rebase this branch onto it;
   - run `npm run lint && npm run typecheck && npm run test && npm run test:integration` and confirm all green before any change;
-  - check every name in the table above against the code, and fix this file's task text where a name differs.
+  - check every name in the table above against the code, and fix this file's task text where a name differs;
+  - check that `AGENTS.md` §2 has phase 4's amendment allowing `page.tsx` to combine several features (T013, T014 and T020 pass other features' query keys from `page.tsx`). If it is missing, stop and ask.
 
 ---
 
@@ -57,6 +58,7 @@ Check these against the rebased code in T001, and update the task text if a name
   - **`schedule`**:
     - "100,000 over 3 → 33,333 / 33,333 / 33,334";
     - "31 January start → 28 Feb, 31 Mar, 30 Apr" (start `2027-01-31`);
+    - "30 January start → 28 Feb, 30 Mar" (start `2027-01-30`, SC-002);
     - "31 January 2028 → 29 February 2028";
     - "29 February 2028 + 12 → 28 February 2029";
     - "each date counts from the start, not the previous line";
@@ -142,10 +144,12 @@ Check these against the rebased code in T001, and update the task text if a name
   - `updateDraftTerms` (`updateMany WHERE approvedAt null` → count);
   - `lockContract` (`$queryRaw … FOR UPDATE`, joined to `reservations.expires_at`, `unit_id` and the unit price);
   - `markApproved` (`updateMany WHERE approvedAt null` → count);
-  - `insertInstallments` (`createMany`; `dueDate: new Date(`${ymd}T00:00:00.000Z`)`, research R8).
+  - `insertInstallments(companyId, contractId, lines, tx)`: first `contract.count({ where: { id: contractId, companyId } }) === 1`, else throw `AppError("NOT_FOUND")`, because `installments` has no `company_id` (constitution I); then `createMany` with `dueDate: new Date(`${ymd}T00:00:00.000Z`)` (research R8).
+  - `dbNow` / `dbClock` take no `companyId`: they read only the DB time, never tenant data.
 
   Write `tests/integration/features/contracts/server/contracts.repository.test.ts`:
   - "every query filters by companyId" (company B rows never returned or updated);
+  - "insertInstallments with company A's id for company B's contract → NOT_FOUND, no rows";
   - "stored due date reads back as the same YYYY-MM-DD".
 - [ ] T010 Detail read model:
   - in `src/features/contracts/server/contracts.service.ts` add `toDetailDto` and `getContract(user, id)`:
@@ -254,7 +258,7 @@ Check these against the rebased code in T001, and update the task text if a name
      5. compare the 3 values → `CONTRACT_CHANGED`;
      6. `markApproved(…, now)` (0 → `CONTRACT_ALREADY_APPROVED`);
      7. `markUnitSold` (0 → `RESERVATION_EXPIRED`, the second guard);
-     8. `buildSchedule(terms, toRiyadhDate(now))` → `insertInstallments`;
+     8. `buildSchedule(terms, toRiyadhDate(now))` → `insertInstallments(companyId, id, lines, tx)`;
      9. `insertAuditLog` with `meta { unitId, unitPrice, finalPrice, downPayment, installmentCount, startDate }` and `createdAt: now`.
   3. After the transaction commits, return `getContract(user, id)`. It is called outside the transaction, so it is not nested (the create and edit paths do the same).
 
@@ -366,14 +370,15 @@ Check these against the rebased code in T001, and update the task text if a name
 - **US1 (T011–T015)**: T011 → T013 → T014. T012 can go at any point after T004. T015 depends only on T001.
 - **US2 (T016–T018)**: needs T011 (fixtures make drafts directly, but the create path proves the DTO shape) and T014 (the detail page for the button). T016 → T017 → T018.
 - **US3 (T019–T020)**: needs T013 (`ContractForm`). T019's edit-vs-approve test needs T017.
-- **US4 (T021–T022)**: needs T010 only. It can run in parallel with US2 and US3 on the server side.
+- **US4 (T021–T022)**: needs T010. T021 shares server files with T011, T017 and T019, so it runs after them (not in parallel). T022 can run beside the US2 and US3 UI tasks.
 - **Polish (T023–T025)**: after all stories.
 
 ## Parallel Example
 
 ```text
 After T001:  T002 (domain tests) ‖ T004 (dates) ‖ T005 (migration) ‖ T006 (error codes)
-After T010:  T011 (create server) ‖ T012 (schedule table) ‖ T015 (reservations link) ‖ T021 (list server)
+After T010:  T011 (create server) ‖ T012 (schedule table) ‖ T015 (reservations link)
+T011, T017, T019 and T021 all edit contracts.service.ts, contracts.routes.ts and contracts.service.test.ts: run them one after another, never in parallel.
 ```
 
 ## Implementation Strategy

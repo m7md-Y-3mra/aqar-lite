@@ -121,7 +121,7 @@ The approval's `now()` is T0, so its check "reservation active" still passes. Th
    5. Compare `seen.finalPrice`, `seen.downPayment` and `seen.installmentCount` with the locked row. Any difference → `CONTRACT_CHANGED` (agreed).
    6. `markApproved(companyId, id, now, tx)`: `updateMany WHERE approvedAt IS NULL`. 0 rows → `CONTRACT_ALREADY_APPROVED`, which cannot happen under the lock.
    7. `markUnitSold(companyId, unitId, tx)` (new units export): conditional `RESERVED → SOLD` (agreed). 0 rows → `RESERVATION_EXPIRED`.
-   8. `startDate = toRiyadhDate(now)`. Then `buildSchedule(terms, startDate)` → `insertInstallments(contractId, lines, tx)` with `createMany`.
+   8. `startDate = toRiyadhDate(now)`. Then `buildSchedule(terms, startDate)` → `insertInstallments(companyId, contractId, lines, tx)`. The `installments` table has no `company_id`, so the function first checks `contract.count({ where: { id: contractId, companyId } }) === 1` (else `NOT_FOUND`), then runs `createMany`. Every data-access function takes `companyId` (constitution I).
    9. `insertAuditLog({ action: "CONTRACT_APPROVED", companyId, userId, entityId: id, meta, createdAt: now }, tx)`.
       - `meta = { unitId, unitPrice, finalPrice, downPayment, installmentCount, startDate }` (clarification Q2: unit price and final price side by side).
 3. Return the detail DTO.
