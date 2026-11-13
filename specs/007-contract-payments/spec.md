@@ -20,6 +20,8 @@ number (0 = down payment), paid amount, line status (FR-029 there) and remaining
   409 (key reused) and an Arabic message that includes the amount already saved; no new payment. Same key, same
   contract, same amount still returns the original payment. On this 409 the form shows the message, refreshes the
   contract's payments and schedule, and makes a new key.
+- Q: Does a sales rep see the payments list of their own contracts? → A: No. Reps see paid amounts and statuses on
+  the schedule only. Reading a contract's payments as a sales rep returns 403.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -132,9 +134,9 @@ and check both payments are listed and the schedule shows the matching paid amou
    message is shown.
 4. **Given** a line that is past its due date and partly paid, **When** the contract is shown, **Then** its status is
    "overdue" (phase 5 rule: overdue wins over partial) and its paid amount is shown.
-5. **Given** a sales rep opens their own approved contract, **When** the page loads, **Then** [NEEDS CLARIFICATION:
-   does the sales rep see the payments list of their own contracts (read-only), or only the schedule with paid amounts
-   and statuses that phase 5 already shows them?]
+5. **Given** a sales rep opens their own approved contract, **When** the page loads, **Then** they see the schedule
+   with paid amounts, statuses and the remaining amount (phase 5), but no payments section; a request for the
+   contract's payments sent by hand is refused as "not allowed" (403).
 
 ---
 
@@ -235,8 +237,9 @@ and check both payments are listed and the schedule shows the matching paid amou
   contract, newest first, with its amount and its date and time in Saudi time. A contract with no payments MUST show
   a clear empty state. A draft contract MUST show no payments section.
 - **FR-022**: The accountant and the manager MUST see the payments of every approved contract in their own company.
-  The sales rep's view follows the answer to the open question in User Story 4. Payments of another company MUST never
-  appear, for any role.
+  A sales rep MUST NOT see payments: the payments section MUST NOT be shown to them, and a request for a contract's
+  payments MUST be refused as "not allowed" (403), even for their own contract. Payments of another company MUST
+  never appear, for any role.
 - **FR-023**: After a successful payment, the payments list, the schedule (paid amounts and statuses), the remaining
   amount and the contracts list MUST show the new state without a manual page reload.
 
@@ -266,7 +269,8 @@ and check both payments are listed and the schedule shows the matching paid amou
   - an overpayment is refused (409) and nothing changes;
   - two payments with different keys sent at the same moment, whose sum is above the remaining amount, result in
     exactly one payment;
-  - a sales rep and a manager cannot record a payment (403);
+  - a sales rep and a manager cannot record a payment (403), and a sales rep cannot read a contract's payments
+    (403);
   - an accountant of company A gets "not found" (404) for a contract of company B, for recording and for viewing;
   - a payment on a draft contract is refused (409) and nothing is saved;
   - a successful payment updates the lines as the allocation rule says and writes one audit entry with the
@@ -277,7 +281,7 @@ and check both payments are listed and the schedule shows the matching paid amou
 | Action | Manager | Sales rep | Accountant |
 |---|---|---|---|
 | Record a payment | No (403) | No (403) | Yes, on approved contracts in own company |
-| See a contract's payments | All in own company | Open question (User Story 4) | All in own company |
+| See a contract's payments | All in own company | No (403); sees paid amounts and statuses on the schedule only | All in own company |
 | Edit or delete a payment | No (no such action) | No (no such action) | No (no such action) |
 
 ### Key Entities *(include if feature involves data)*
@@ -330,6 +334,10 @@ and check both payments are listed and the schedule shows the matching paid amou
   now applies only when the amount is the same. Reason: the form keeps its key until success, so an accountant who
   edits the amount after a network failure would otherwise believe the new amount was saved. The form then refreshes
   the contract and makes a new key.
+- **Sales rep and payments** (confirmed with the user, 2026-11-13): a sales rep does not see the payments list, even
+  on their own contracts. They see paid amounts, statuses and the remaining amount on the schedule only (phase 5).
+  Reading a contract's payments as a sales rep returns 403. Reason: the brief's user story names only the accountant
+  and the manager, and the rep needs no more than the schedule to follow their client.
 - **"How the schedule changed"**: shown as the payments list plus the schedule's current paid amounts, statuses and
   remaining amount, refreshed after each payment. The contract page does not show a per-payment breakdown by line or
   who recorded each payment; both are kept in the audit entry (FR-020), which the manager reads in phase 7. Showing

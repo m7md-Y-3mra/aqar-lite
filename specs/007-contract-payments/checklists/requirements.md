@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -35,6 +35,8 @@
   FR-014) and the sales rep's view of payments (User Story 4 scenario 5, FR-022).
 - Iteration 2: key reuse answered (409 with the saved amount; recorded in Clarifications and Assumptions; test added
   to FR-029). One marker left: the sales rep's view of payments (User Story 4 scenario 5), the phase's clarify focus.
+- Iteration 3: sales rep view answered (no payments list; reading payments returns 403). No markers remain; all items
+  pass.
 - HTTP status codes (400/403/404/409) are kept on purpose: the project's earlier specs (phases 4 and 5) state them,
   and the brief and constitution define behavior by them ("another company returns 404"). No framework, language or
   storage detail is named.
