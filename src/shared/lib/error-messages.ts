@@ -9,5 +9,6 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   NOT_FOUND: "العنصر غير موجود",
   UNIT_PRICE_LOCKED: "لا يمكن تغيير سعر وحدة محجوزة أو مباعة",
   UNIT_CHANGED: "تم تعديل هذه الوحدة للتو، حدّث الصفحة وحاول مرة أخرى",
+  UNIT_NOT_AVAILABLE: "هذه الوحدة لم تعد متاحة، فقد حُجزت للتو. اختر وحدة أخرى.",
   INTERNAL_ERROR: "حدث خطأ غير متوقع، حاول مرة أخرى",
 };

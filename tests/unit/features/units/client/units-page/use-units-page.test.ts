@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useUnitsPage } from "@/features/units/client/units-page/use-units-page";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), search: "" }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), search: "" }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
+  usePathname: () => "/units",
   useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
@@ -86,5 +87,21 @@ describe("useUnitsPage", () => {
     expect(useUnitsPage().query).toMatchObject({ status: "RESERVED", minPrice: 500, page: 2 });
     navigation.search = "";
     expect(useUnitsPage().query).toEqual({ page: 1, pageSize: 20, order: "asc" });
+  });
+
+  it("openReserve keeps the current params and adds reserve with a shallow replace", () => {
+    const replaceState = vi.fn();
+    vi.stubGlobal("window", { history: { replaceState } });
+    navigation.search = "page=2&status=AVAILABLE";
+    useUnitsPage().openReserve("11111111-1111-4111-8111-111111111111");
+    const url = new URL(replaceState.mock.lastCall?.[2] as string, "http://localhost");
+    expect(url.pathname).toBe("/units");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      page: "2",
+      status: "AVAILABLE",
+      reserve: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(navigation.replace).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

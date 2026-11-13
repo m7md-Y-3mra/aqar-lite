@@ -42,6 +42,29 @@ async function reservedUnit(status: "RESERVED" | "SOLD", expired: boolean) {
 }
 
 describe("list", () => {
+  it("reserved unit has reservedUntil = active expiry", async () => {
+    const unit = await reservedUnit("RESERVED", false);
+    const reservation = await getDb().reservation.findFirstOrThrow({ where: { unitId: unit.id } });
+    const expected = { id: unit.id, reservedUntil: reservation.expiresAt.toISOString() };
+    expect((await list()).items[0]).toMatchObject(expected);
+    expect(await getUnit(companies.a.manager, unit.id)).toMatchObject(expected);
+    expect(await updateUnit(companies.a.manager, unit.id, editInput(unit))).toMatchObject(expected);
+  });
+
+  it("available unit has reservedUntil null", async () => {
+    await makeUnit(companies.a.companyId);
+    expect((await list()).items[0]).toMatchObject({ status: "AVAILABLE", reservedUntil: null });
+  });
+
+  it("DTO has no client or salesRep key", async () => {
+    await reservedUnit("RESERVED", false);
+    const dto = (await list()).items[0];
+    expect(dto).not.toHaveProperty("client");
+    expect(dto).not.toHaveProperty("salesRep");
+    expect(dto).not.toHaveProperty("clientId");
+    expect(dto).not.toHaveProperty("salesRepId");
+  });
+
   it("filters by status", async () => {
     await makeUnit(companies.a.companyId);
     const sold = await makeUnit(companies.a.companyId, { status: "SOLD" });
@@ -129,6 +152,7 @@ describe("list", () => {
       rooms: unit.rooms,
       price: 100_000_000_000,
       status: unit.status,
+      reservedUntil: null,
     };
     const page = await list();
     expect(page.items).toEqual([expected]);
@@ -254,7 +278,12 @@ async function expectDuplicate(promise: Promise<unknown>) {
 describe("create", () => {
   it("manager creates AVAILABLE unit", async () => {
     const dto = await createUnit(companies.a.manager, validInput);
-    expect(dto).toEqual({ ...validInput, id: expect.any(String), status: "AVAILABLE" });
+    expect(dto).toEqual({
+      ...validInput,
+      id: expect.any(String),
+      status: "AVAILABLE",
+      reservedUntil: null,
+    });
     expect(await getDb().unit.findUnique({ where: { id: dto.id } })).toMatchObject({
       companyId: companies.a.companyId,
       status: "AVAILABLE",

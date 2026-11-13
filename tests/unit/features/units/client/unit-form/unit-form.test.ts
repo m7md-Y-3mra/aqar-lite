@@ -44,6 +44,7 @@ const unit: UnitDto = {
   rooms: 4,
   price: 50_000_000,
   status: "AVAILABLE",
+  reservedUntil: null,
 };
 
 function renderEdit() {

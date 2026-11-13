@@ -1,7 +1,7 @@
 import "server-only";
 
 export { listUnits, getUnit, createUnit, updateUnit } from "./units.service";
-export { releaseExpired } from "./units.repository";
+export { releaseExpired, reserveUnitIfAvailable, findUnitStatus } from "./units.repository";
 export {
   listUnitsHandler,
   getUnitHandler,

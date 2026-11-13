@@ -12,8 +12,8 @@ import { UnitsTable } from "./components/units-table";
 import type { UnitsPageProps } from "./types";
 import { useUnitsPage } from "./use-units-page";
 
-export function UnitsPage({ role }: UnitsPageProps) {
-  const { query, valid, result, hasFilters, setFilters, setPage } = useUnitsPage();
+export function UnitsPage({ role, reserveDialog }: UnitsPageProps) {
+  const { query, valid, result, hasFilters, setFilters, setPage, openReserve } = useUnitsPage();
 
   return (
     <section className="min-w-0 space-y-6">
@@ -34,7 +34,7 @@ export function UnitsPage({ role }: UnitsPageProps) {
         <>
           <UnitsFilters key={JSON.stringify(query)} query={query} onApply={setFilters} />
           {result.isPending ? (
-            <TableSkeleton columns={role === "MANAGER" ? 8 : 7} />
+            <TableSkeleton columns={role === "ACCOUNTANT" ? 7 : 8} />
           ) : result.isError ? (
             <ErrorState
               message="تعذر تحميل الوحدات. حاول مرة أخرى."
@@ -57,7 +57,9 @@ export function UnitsPage({ role }: UnitsPageProps) {
                 <UnitsTable
                   units={result.data.items}
                   canEdit={role === "MANAGER"}
+                  canReserve={role === "SALES"}
                   dimmed={result.isPlaceholderData}
+                  onReserve={openReserve}
                 />
               )}
               <PaginationNav
@@ -70,6 +72,7 @@ export function UnitsPage({ role }: UnitsPageProps) {
           )}
         </>
       )}
+      {reserveDialog}
     </section>
   );
 }

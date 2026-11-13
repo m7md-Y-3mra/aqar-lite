@@ -14,6 +14,7 @@ const unit: UnitDto = {
   rooms: 3,
   price: 50_000_000,
   status: "AVAILABLE",
+  reservedUntil: null,
 };
 
 const query: UnitListQuery = { page: 1, pageSize: 20, order: "asc" };

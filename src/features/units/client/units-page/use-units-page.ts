@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { toQueryInput } from "@/shared/lib/search-params";
 import { unitListQuerySchema } from "../../units.schemas";
@@ -10,6 +10,7 @@ import { unitListOptions } from "../units.queries";
 
 export function useUnitsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const parsed = unitListQuerySchema.safeParse(toQueryInput(searchParams));
   const query = parsed.success ? parsed.data : unitListQuerySchema.parse({});
@@ -40,5 +41,11 @@ export function useUnitsPage() {
       query.status !== undefined || query.minPrice !== undefined || query.maxPrice !== undefined,
     setFilters: (next: Partial<UnitListQuery>) => navigate({ ...query, ...next, page: 1 }),
     setPage: (page: number) => navigate({ ...query, page }),
+    openReserve: (unitId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("reserve", unitId);
+      // Shallow update: Next syncs useSearchParams without a server round trip.
+      window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+    },
   };
 }
