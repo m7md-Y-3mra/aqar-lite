@@ -141,3 +141,12 @@ export async function dbNow(tx?: Tx): Promise<Date> {
   const [row] = await db.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
   return row!.now;
 }
+
+export function findActiveExpiries(companyId: string, unitIds: string[], now: Date, tx?: Tx) {
+  if (unitIds.length === 0) return Promise.resolve([]);
+  const db = tx ?? getDb();
+  return db.reservation.findMany({
+    where: { companyId, unitId: { in: unitIds }, expiresAt: { gt: now } },
+    select: { unitId: true, expiresAt: true },
+  });
+}

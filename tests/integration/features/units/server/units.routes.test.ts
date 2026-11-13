@@ -69,6 +69,7 @@ describe("units routes", () => {
             rooms: own.rooms,
             price: Number(own.price),
             status: own.status,
+            reservedUntil: null,
           },
         ],
         total: 1,
@@ -120,6 +121,7 @@ describe("units routes", () => {
           rooms: unit.rooms,
           price: Number(unit.price),
           status: unit.status,
+          reservedUntil: null,
         },
       });
     },
@@ -188,7 +190,7 @@ describe("unit mutations", () => {
     );
     expect(response.status).toBe(201);
     expect(await readJson(response)).toEqual({
-      data: { ...validInput, id: expect.any(String), status: "AVAILABLE" },
+      data: { ...validInput, id: expect.any(String), status: "AVAILABLE", reservedUntil: null },
     });
     expect(await getDb().unit.count({ where: { companyId: companies.a.companyId } })).toBe(1);
     expect(await getDb().unit.count({ where: { companyId: companies.b.companyId } })).toBe(0);
@@ -252,7 +254,7 @@ describe("unit mutations", () => {
     const response = await patch(unit.id, { ...validInput, area: 200, status: "SOLD" });
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
-      data: { ...validInput, area: 200, id: unit.id, status: "AVAILABLE" },
+      data: { ...validInput, area: 200, id: unit.id, status: "AVAILABLE", reservedUntil: null },
     });
   });
 
