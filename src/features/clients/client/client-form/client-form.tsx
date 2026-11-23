@@ -1,6 +1,8 @@
 "use client";
 
 import { ErrorState } from "@/shared/components/error-state";
+import { PageHeader } from "@/shared/components/page-header";
+import { PageLoading } from "@/shared/components/page-loading";
 import { ClientFormFields } from "./components/client-form-fields";
 import type { ClientFormProps } from "./types";
 import { useClientForm } from "./use-client-form";
@@ -13,11 +15,7 @@ export function ClientForm(props: ClientFormProps) {
   if (props.mode === "create") {
     body = <ClientFormFields mode="create" />;
   } else if (detail.isPending) {
-    body = (
-      <p role="status" className="text-sm text-muted-foreground">
-        جارٍ التحميل…
-      </p>
-    );
+    body = <PageLoading />;
   } else if (detail.isError) {
     body = <ErrorState message="تعذر تحميل العميل." onRetry={() => void detail.refetch()} />;
   } else {
@@ -26,8 +24,8 @@ export function ClientForm(props: ClientFormProps) {
 
   return (
     <section className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      {body}
+      <PageHeader title={title} />
+      <div className="rounded-xl border bg-card p-5 shadow-xs md:p-6">{body}</div>
     </section>
   );
 }
