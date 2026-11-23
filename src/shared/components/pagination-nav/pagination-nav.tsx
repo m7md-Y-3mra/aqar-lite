@@ -25,12 +25,9 @@ export function PaginationNav({ page, pageSize, total, onPageChange }: Paginatio
       className="flex flex-wrap items-center justify-between gap-3"
     >
       <p className="text-sm text-muted-foreground">
-        عرض{" "}
-        <span
-          dir="ltr"
-          className="font-medium text-foreground tabular-nums"
-        >{`${from}–${to}`}</span>{" "}
-        من <span className="font-medium text-foreground tabular-nums">{total}</span>
+        عرض <span className="font-medium text-foreground tabular-nums">{from}</span> إلى{" "}
+        <span className="font-medium text-foreground tabular-nums">{to}</span> من{" "}
+        <span className="font-medium text-foreground tabular-nums">{total}</span>
       </p>
       <div className="flex items-center gap-2">
         <Button
