@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import { EmptyState } from "@/shared/components/empty-state";
 import { ErrorState } from "@/shared/components/error-state";
+import { PageHeader } from "@/shared/components/page-header";
 import { PaginationNav } from "@/shared/components/pagination-nav";
 import { TableSkeleton } from "@/shared/components/table-skeleton";
 import { buttonVariants } from "@/shared/components/ui/button";
@@ -16,14 +18,17 @@ export function ClientsPage({ role }: ClientsPageProps) {
 
   return (
     <section className="min-w-0 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">العملاء</h1>
-        {role === "SALES" && (
-          <Link href="/clients/new" className={buttonVariants()}>
-            إضافة عميل
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="العملاء"
+        actions={
+          role === "SALES" && (
+            <Link href="/clients/new" className={buttonVariants()}>
+              <Plus aria-hidden="true" />
+              إضافة عميل
+            </Link>
+          )
+        }
+      />
       {!valid ? (
         <ErrorState
           message="معايير البحث غير صحيحة. امسح الفلاتر وحاول مرة أخرى."

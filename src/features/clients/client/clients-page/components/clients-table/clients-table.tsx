@@ -9,10 +9,11 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import type { ClientsTableProps } from "./types";
+import { DataCard } from "@/shared/components/data-card";
 
 export function ClientsTable({ clients, showOwner, dimmed }: ClientsTableProps) {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <DataCard>
       <Table aria-label="العملاء" aria-busy={dimmed} className={dimmed ? "opacity-50" : undefined}>
         <TableHeader>
           <TableRow>
@@ -37,6 +38,6 @@ export function ClientsTable({ clients, showOwner, dimmed }: ClientsTableProps) 
           ))}
         </TableBody>
       </Table>
-    </div>
+    </DataCard>
   );
 }

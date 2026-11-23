@@ -14,10 +14,11 @@ import { formatRiyals } from "@/shared/lib/money";
 import { UNIT_TYPE_LABELS } from "../../../unit-labels";
 import { UnitStatusBadge } from "../unit-status-badge";
 import type { UnitsTableProps } from "./types";
+import { DataCard } from "@/shared/components/data-card";
 
 export function UnitsTable({ units, canEdit, canReserve, dimmed, onReserve }: UnitsTableProps) {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <DataCard>
       <Table aria-label="الوحدات" aria-busy={dimmed} className={dimmed ? "opacity-50" : undefined}>
         <TableHeader>
           <TableRow>
@@ -83,6 +84,6 @@ export function UnitsTable({ units, canEdit, canReserve, dimmed, onReserve }: Un
           ))}
         </TableBody>
       </Table>
-    </div>
+    </DataCard>
   );
 }

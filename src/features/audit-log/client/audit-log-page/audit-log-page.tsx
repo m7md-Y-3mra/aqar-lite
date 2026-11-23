@@ -2,6 +2,7 @@
 
 import { EmptyState } from "@/shared/components/empty-state";
 import { ErrorState } from "@/shared/components/error-state";
+import { PageHeader } from "@/shared/components/page-header";
 import { PaginationNav } from "@/shared/components/pagination-nav";
 import { TableSkeleton } from "@/shared/components/table-skeleton";
 import { AuditLogTable } from "./components/audit-log-table";
@@ -12,7 +13,7 @@ export function AuditLogPage() {
 
   return (
     <section className="min-w-0 space-y-6">
-      <h1 className="text-2xl font-semibold">سجل التدقيق</h1>
+      <PageHeader title="سجل التدقيق" />
       {!valid ? (
         <ErrorState message="معايير البحث غير صحيحة. حاول مرة أخرى." resetHref="/audit-log" />
       ) : result.isPending ? (

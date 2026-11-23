@@ -11,6 +11,7 @@ import {
 } from "@/shared/components/ui/table";
 import { formatRiyadhDateTime, formatTimeLeft } from "@/shared/lib/dates";
 import type { ReservationsTableProps } from "./types";
+import { DataCard } from "@/shared/components/data-card";
 
 export function ReservationsTable({
   reservations,
@@ -20,7 +21,7 @@ export function ReservationsTable({
   dimmed,
 }: ReservationsTableProps) {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <DataCard>
       <Table
         aria-label="الحجوزات النشطة"
         aria-busy={dimmed}
@@ -66,6 +67,6 @@ export function ReservationsTable({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </DataCard>
   );
 }

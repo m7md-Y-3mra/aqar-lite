@@ -10,10 +10,11 @@ import { formatRiyadhDateTime } from "@/shared/lib/dates";
 import { AuditEventBadge } from "../audit-event-badge";
 import { AuditEventDetails } from "../audit-event-details";
 import type { AuditLogTableProps } from "./types";
+import { DataCard } from "@/shared/components/data-card";
 
 export function AuditLogTable({ events, dimmed }: AuditLogTableProps) {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <DataCard>
       <Table
         aria-label="سجل التدقيق"
         aria-busy={dimmed}
@@ -52,6 +53,6 @@ export function AuditLogTable({ events, dimmed }: AuditLogTableProps) {
           ))}
         </TableBody>
       </Table>
-    </div>
+    </DataCard>
   );
 }
