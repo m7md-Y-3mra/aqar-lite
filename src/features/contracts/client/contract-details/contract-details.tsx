@@ -37,7 +37,7 @@ export function ContractDetails({
         <section className="space-y-6">
           <PageHeader title="العقد غير موجود" />
           <EmptyState
-            message="لم نجد هذا العقد في شركتك."
+            message="تأكد من الرابط أو عد إلى قائمة العقود."
             action={
               <Link href="/contracts" className={buttonVariants({ variant: "link" })}>
                 العودة إلى العقود
