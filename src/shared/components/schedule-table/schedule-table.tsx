@@ -1,3 +1,4 @@
+import { DataCard } from "@/shared/components/data-card";
 import { EmptyState } from "@/shared/components/empty-state";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -14,7 +15,7 @@ export function ScheduleTable({ lines, estimatedLabel, statusLabels }: ScheduleT
     <section className="space-y-3" aria-label="جدول الأقساط">
       {estimatedLabel && <p className="text-sm text-muted-foreground">{estimatedLabel}</p>}
       {lines.length === 0 ? <EmptyState message="لا توجد أقساط" /> : (
-        <div className="overflow-x-auto">
+        <DataCard>
           <Table>
             <TableHeader><TableRow>
               <TableHead>القسط</TableHead><TableHead>تاريخ الاستحقاق</TableHead>
@@ -30,7 +31,7 @@ export function ScheduleTable({ lines, estimatedLabel, statusLabels }: ScheduleT
               {showStatus && <TableCell>{line.status && <Badge variant="outline">{statusLabels?.[line.status] ?? "—"}</Badge>}</TableCell>}
             </TableRow>)}</TableBody>
           </Table>
-        </div>
+        </DataCard>
       )}
     </section>
   );

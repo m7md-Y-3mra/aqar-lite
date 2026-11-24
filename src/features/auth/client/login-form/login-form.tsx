@@ -16,7 +16,7 @@ export function LoginForm() {
   const { register, errors, isPending, onSubmit } = useLoginForm();
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md rounded-xl shadow-sm">
       <CardHeader>
         <CardTitle className="text-2xl">عقار لايت</CardTitle>
         <CardDescription>سجّل الدخول للوصول إلى حسابك</CardDescription>

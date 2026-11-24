@@ -14,7 +14,11 @@ export function RecordPaymentForm(props: RecordPaymentFormProps) {
   const { form, errors, isPending, onSubmit } = useRecordPaymentForm(props);
 
   return (
-    <form noValidate onSubmit={onSubmit} className="space-y-4 rounded-lg border p-4">
+    <form
+      noValidate
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-xl border bg-card p-5 shadow-xs"
+    >
       {errors.root?.message && (
         <Alert variant="destructive">
           <AlertDescription>{errors.root.message}</AlertDescription>

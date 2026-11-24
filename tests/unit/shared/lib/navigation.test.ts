@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterNavItems, NAV_ITEMS, navItemsFor } from "@/shared/lib/navigation";
+import { filterNavItems, isActiveNavPath, NAV_ITEMS, navItemsFor } from "@/shared/lib/navigation";
 import type { NavItem } from "@/shared/lib/navigation";
 import { ROLES } from "@/shared/lib/roles";
 
@@ -60,5 +60,17 @@ describe("navigation", () => {
     const original = structuredClone(items);
     filterNavItems(items, "SALES");
     expect(items).toEqual(original);
+  });
+
+  it.each([
+    ["/", "/", true],
+    ["/units", "/", false],
+    ["/units", "/units", true],
+    ["/units/new", "/units", true],
+    ["/contracts/12/edit", "/contracts", true],
+    ["/units-archive", "/units", false],
+    ["/clients", "/units", false],
+  ])("isActiveNavPath(%s, %s) is %s", (pathname, href, expected) => {
+    expect(isActiveNavPath(pathname, href)).toBe(expected);
   });
 });

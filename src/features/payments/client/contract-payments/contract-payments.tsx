@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { DataCard } from "@/shared/components/data-card";
 import { EmptyState } from "@/shared/components/empty-state";
 import { ErrorState } from "@/shared/components/error-state";
 import { TableSkeleton } from "@/shared/components/table-skeleton";
@@ -24,7 +25,7 @@ export function ContractPayments({ contractId, role, relatedQueryKeys }: Contrac
 
   return (
     <section className="space-y-3" aria-labelledby="payments-heading">
-      <h2 id="payments-heading" className="text-xl font-semibold">
+      <h2 id="payments-heading" className="text-lg font-semibold">
         الدفعات
       </h2>
       {query.isPending ? (
@@ -34,7 +35,9 @@ export function ContractPayments({ contractId, role, relatedQueryKeys }: Contrac
       ) : (
         <>
           {query.data.remaining === 0 ? (
-            <p className="font-medium">تم سداد العقد بالكامل.</p>
+            <p className="rounded-xl border border-primary/20 bg-accent px-4 py-3 font-medium text-accent-foreground">
+              تم سداد العقد بالكامل.
+            </p>
           ) : (
             role === "ACCOUNTANT" && (
               <RecordPaymentForm
@@ -47,7 +50,7 @@ export function ContractPayments({ contractId, role, relatedQueryKeys }: Contrac
           {query.data.payments.length === 0 ? (
             <EmptyState message="لا توجد دفعات مسجلة بعد" />
           ) : (
-            <div className="overflow-x-auto">
+            <DataCard>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -66,7 +69,7 @@ export function ContractPayments({ contractId, role, relatedQueryKeys }: Contrac
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </DataCard>
           )}
         </>
       )}

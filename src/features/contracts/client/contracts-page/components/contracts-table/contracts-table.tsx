@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DataCard } from "@/shared/components/data-card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
 import { formatRiyals } from "@/shared/lib/money";
@@ -8,7 +9,7 @@ import type { ContractsTableProps } from "./types";
 
 export function ContractsTable({ contracts, dimmed }: ContractsTableProps) {
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <DataCard>
       <Table aria-label="العقود" aria-busy={dimmed} className={dimmed ? "opacity-50" : undefined}>
         <TableHeader><TableRow>
           <TableHead>الوحدة</TableHead><TableHead>المشروع</TableHead><TableHead>العميل</TableHead>
@@ -27,6 +28,6 @@ export function ContractsTable({ contracts, dimmed }: ContractsTableProps) {
           </TableRow>
         ))}</TableBody>
       </Table>
-    </div>
+    </DataCard>
   );
 }

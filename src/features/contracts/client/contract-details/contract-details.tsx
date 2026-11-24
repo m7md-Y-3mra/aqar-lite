@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 
+import { DetailGrid } from "@/shared/components/detail-grid";
+import { EmptyState } from "@/shared/components/empty-state";
 import { ErrorState } from "@/shared/components/error-state";
+import { PageHeader } from "@/shared/components/page-header";
+import { PageLoading } from "@/shared/components/page-loading";
 import { ScheduleTable } from "@/shared/components/schedule-table";
 import { Badge } from "@/shared/components/ui/badge";
 import { buttonVariants } from "@/shared/components/ui/button";
@@ -26,13 +30,20 @@ export function ContractDetails({
   paymentsSlot,
 }: ContractDetailsProps) {
   const detail = useContractDetails(id);
-  if (detail.isPending) return <p role="status">جارٍ التحميل…</p>;
+  if (detail.isPending) return <PageLoading />;
   if (detail.isError) {
     if (detail.error instanceof ApiError && detail.error.status === 404) {
       return (
-        <section className="space-y-3">
-          <h1 className="text-2xl font-semibold">العقد غير موجود</h1>
-          <Link href="/contracts">العودة إلى العقود</Link>
+        <section className="space-y-6">
+          <PageHeader title="العقد غير موجود" />
+          <EmptyState
+            message="تأكد من الرابط أو عد إلى قائمة العقود."
+            action={
+              <Link href="/contracts" className={buttonVariants({ variant: "link" })}>
+                العودة إلى العقود
+              </Link>
+            }
+          />
         </section>
       );
     }
@@ -43,19 +54,25 @@ export function ContractDetails({
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">تفاصيل العقد</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge variant="secondary">
-            {contract.reservationExpired ? "انتهى الحجز" : contractStatusLabels[contract.status]}
-          </Badge>
-          {role === "SALES" && contract.salesRep.id === userId && activeDraft && (
-            <Link href={`/contracts/${id}/edit`} className={buttonVariants({ variant: "outline" })}>
-              تعديل
-            </Link>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="تفاصيل العقد"
+        description={`${contract.unit.projectName} — ${contract.client.name}`}
+        actions={
+          <>
+            <Badge variant="secondary">
+              {contract.reservationExpired ? "انتهى الحجز" : contractStatusLabels[contract.status]}
+            </Badge>
+            {role === "SALES" && contract.salesRep.id === userId && activeDraft && (
+              <Link
+                href={`/contracts/${id}/edit`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                تعديل
+              </Link>
+            )}
+          </>
+        }
+      />
       {role === "ACCOUNTANT" && (
         <ApproveContractButton
           id={id}
@@ -68,60 +85,60 @@ export function ContractDetails({
           relatedQueryKeys={relatedQueryKeys}
         />
       )}
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <DetailGrid>
         <div>
-          <dt className="text-muted-foreground">المشروع</dt>
+          <dt>المشروع</dt>
           <dd>{contract.unit.projectName}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">الوحدة</dt>
+          <dt>الوحدة</dt>
           <dd>{contract.unit.number}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">العميل</dt>
+          <dt>العميل</dt>
           <dd>{contract.client.name}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">المندوب</dt>
+          <dt>المندوب</dt>
           <dd>{contract.salesRep.name}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">انتهاء الحجز</dt>
+          <dt>انتهاء الحجز</dt>
           <dd>{formatRiyadhDateTime(contract.reservation.expiresAt)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">سعر الوحدة</dt>
+          <dt>سعر الوحدة</dt>
           <dd>{formatRiyals(contract.unit.price)} ريال</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">السعر النهائي</dt>
+          <dt>السعر النهائي</dt>
           <dd>{formatRiyals(contract.finalPrice)} ريال</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">الدفعة المقدمة</dt>
+          <dt>الدفعة المقدمة</dt>
           <dd>{formatRiyals(contract.downPayment)} ريال</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">عدد الأقساط</dt>
+          <dt>عدد الأقساط</dt>
           <dd>{contract.installmentCount}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">تاريخ الاعتماد</dt>
+          <dt>تاريخ الاعتماد</dt>
           <dd>
             {contract.approvedAt ? formatRiyadhDateTime(contract.approvedAt) : "لم يُعتمد بعد"}
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">بداية العقد</dt>
+          <dt>بداية العقد</dt>
           <dd>{contract.startDate ? formatRiyadhDate(contract.startDate) : "لم تُثبّت بعد"}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">المتبقي</dt>
+          <dt>المتبقي</dt>
           <dd>{formatRiyals(contract.remaining)} ريال</dd>
         </div>
-      </dl>
+      </DetailGrid>
       <div className="space-y-3">
-        <h2 className="text-xl font-semibold">جدول الأقساط</h2>
+        <h2 className="text-lg font-semibold">جدول الأقساط</h2>
         <ScheduleTable
           lines={contract.schedule.lines}
           estimatedLabel={contract.schedule.estimated ? ESTIMATED_DATES_LABEL : undefined}

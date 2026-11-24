@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/shared/components/empty-state";
 import { ErrorState } from "@/shared/components/error-state";
+import { PageHeader } from "@/shared/components/page-header";
 import { PaginationNav } from "@/shared/components/pagination-nav";
 import { TableSkeleton } from "@/shared/components/table-skeleton";
 import { buttonVariants } from "@/shared/components/ui/button";
@@ -16,7 +17,7 @@ export function ReservationsPage({ role }: ReservationsPageProps) {
 
   return (
     <section className="min-w-0 space-y-6">
-      <h1 className="text-2xl font-semibold">الحجوزات</h1>
+      <PageHeader title="الحجوزات" />
       {!valid ? (
         <ErrorState message="معايير البحث غير صحيحة. حاول مرة أخرى." resetHref="/reservations" />
       ) : result.isPending ? (

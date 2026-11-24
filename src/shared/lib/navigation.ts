@@ -31,3 +31,9 @@ export function filterNavItems(items: readonly NavItem[], role: Role): NavItem[]
 export function navItemsFor(role: Role): NavItem[] {
   return filterNavItems(NAV_ITEMS, role);
 }
+
+/* An item is active on its own page and on pages under it (/units/new, /contracts/12). */
+export function isActiveNavPath(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
